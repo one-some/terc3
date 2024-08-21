@@ -20,19 +20,21 @@ Player player = {
 fn void player_physics() {
 	if (raylib::is_key_down(raylib::keyboard::D)) player.position.x += 5.0;
 	if (raylib::is_key_down(raylib::keyboard::A)) player.position.x -= 5.0;
-	if (raylib::is_key_down(raylib::keyboard::SPACE)) player.velocity.y -= 20.0;
-
 
 	player.velocity.y = (float)$$min(9.8, player.velocity.y + 0.31);
+    bool on_ground = false;
 
 	List(<raylib::Vector2>) tiles = get_maybe_colliding_tiles();
 	foreach (tile : tiles) {
-		raylib::draw_rectangle((int)tile.x * TILE_SIZE, (int)tile.y * TILE_SIZE, TILE_SIZE, TILE_SIZE, raylib::GREEN);
+		//raylib::draw_rectangle((int)tile.x * TILE_SIZE, (int)tile.y * TILE_SIZE, TILE_SIZE, TILE_SIZE, raylib::GREEN);
 
 		if (!get_tile((int)tile.x, (int)tile.y)) continue;
 		player.velocity.y = 0;
+        on_ground = true;
     }
 	tiles.free();
+
+	if (on_ground && raylib::is_key_down(raylib::keyboard::SPACE)) player.velocity.y -= 12.0;
 
 	player.position.y += player.velocity.y;
 }
@@ -49,13 +51,12 @@ fn List(<raylib::Vector2>) get_maybe_colliding_tiles() {
 		}
 	}
 
-	io::printn(tiles[0].y);
-
 	return tiles;
 }
 
 fn uint get_tile(int x, int y) {
-	if (y > 10 && x % 2 == 0) return 1;
+	if (y == 11) return 2;
+	if (y > 10) return 1;
 	return 0;
 }
 
