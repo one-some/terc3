@@ -70,6 +70,8 @@ fn void spawn_bomb(raylib::Vector2 stupid_hehehe) {
 }
 
 fn void player_physics() {
+    // FIXME: W
+    player.velocity.x = 0;
 	if (raylib::is_key_down(raylib::keyboard::D)) player.velocity.x = 5.0;
 	if (raylib::is_key_down(raylib::keyboard::A)) player.velocity.x = -5.0;
 
@@ -85,12 +87,18 @@ fn void player_physics() {
 		//raylib::draw_rectangle((int)tile.x * TILE_SIZE, (int)tile.y * TILE_SIZE, TILE_SIZE, TILE_SIZE, raylib::GREEN);
 
 		if (!get_tile((int)(tile.x), (int)(tile.y))) continue;
-		if (tile.x + TILE_SIZE < future_pos.x) continue;
-		if (tile.x > future_pos.x + player.size.x) continue;
+        raylib::Vector2 t_wpos = { tile.x * TILE_SIZE, tile.y * TILE_SIZE };
+
+        if (t_wpos.x + TILE_SIZE < future_pos.x) continue;
+        if (t_wpos.x > future_pos.x + player.size.x) continue;
+
+        if (t_wpos.y + TILE_SIZE < future_pos.y) continue;
+        if (t_wpos.y > future_pos.y + player.size.y) continue;
 
 		player.velocity.x = 0;
 		player.velocity.y = 0;
         on_ground = true;
+        break;
     }
 	tiles.free();
 
@@ -109,8 +117,8 @@ fn List(<raylib::Vector2>) get_maybe_colliding_tiles(raylib::Vector2 pos) {
 	List(<raylib::Vector2>) tiles;
     tiles.new_init();
 
-	for (int x = (int)$$floor(pos.x / TILE_SIZE); x < (int)$$ceil((pos.x + player.size.x) / TILE_SIZE); x++) {
-		for (int y = (int)$$floor(pos.y / TILE_SIZE); y < (int)$$ceil((pos.y + player.size.y) / TILE_SIZE); y++) {
+	for (int x = (int)$$floor(pos.x / TILE_SIZE) - 1; x < (int)$$ceil((pos.x + player.size.x) / TILE_SIZE) + 1; x++) {
+		for (int y = (int)$$floor(pos.y / TILE_SIZE) - 1; y < (int)$$ceil((pos.y + player.size.y) / TILE_SIZE) + 1; y++) {
 			tiles.push(raylib::Vector2 { x, y });
 		}
 	}
@@ -119,13 +127,14 @@ fn List(<raylib::Vector2>) get_maybe_colliding_tiles(raylib::Vector2 pos) {
 }
 
 fn Chunk* chunk_for_tile(int x, int y) {
-	int chunk_x = x / 128;
-	int chunk_y = y / 128;
+	int chunk_x = (int)$$floor(x / 128.0);
+	int chunk_y = (int)$$floor(y / 128.0);
 
 	Chunk* target_chunk = null;
 
 	// Yes this sux but idk a better way atm.................!
 	String chunk_key = std::core::string::tformat("%d,%d", chunk_x, chunk_y);
+	io::printf("%d, %d\n", x, chunk_x);
 
 	if (try maybe_chunk = chunks.get(chunk_key)) {
 		return maybe_chunk;
@@ -135,7 +144,6 @@ fn Chunk* chunk_for_tile(int x, int y) {
 
 	Chunk* new_chunk = mem::new(Chunk);
 	*new_chunk = gen_chunk(chunk_x, chunk_y);
-
 	chunks.set(chunk_key, new_chunk);
 
 	return new_chunk;
@@ -248,6 +256,18 @@ fn int main(String[] args) {
 		
 		logic();
 		raylib::end_mode2d();
+
+        raylib::draw_text(
+            string::tformat(
+                "Player: (%f, %f)",
+                player.position.x,
+                player.position.y
+            ),
+            0,
+            0,
+            24,
+            raylib::BLACK
+        );
 		
 		raylib::end_drawing();
 	}
