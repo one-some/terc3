@@ -4,6 +4,9 @@ import raylib;
 import std::collections::list;
 import std::collections::map;
 
+const TILE_SIZE = 32;
+const CHUNK_SIZE = 128;
+
 struct Player {
 	raylib::Vector2 position;
 	raylib::Vector2 size;
@@ -17,10 +20,8 @@ struct Bomb {
 
 struct Chunk {
 	raylib::Vector2 position;
-	ushort[128*128] tiles;
+	ushort[CHUNK_SIZE*CHUNK_SIZE] tiles;
 }
-
-const TILE_SIZE = 32;
 
 Player player = {
 	raylib::Vector2 { 10, 0 },
@@ -84,9 +85,11 @@ fn void player_physics() {
 
 	List(<raylib::Vector2>) tiles = get_maybe_colliding_tiles(future_pos);
 	foreach (tile : tiles) {
-		//raylib::draw_rectangle((int)tile.x * TILE_SIZE, (int)tile.y * TILE_SIZE, TILE_SIZE, TILE_SIZE, raylib::GREEN);
 
 		if (!get_tile((int)(tile.x), (int)(tile.y))) continue;
+
+		raylib::draw_rectangle((int)tile.x * TILE_SIZE, (int)tile.y * TILE_SIZE, TILE_SIZE, TILE_SIZE, raylib::GREEN);
+
         raylib::Vector2 t_wpos = { tile.x * TILE_SIZE, tile.y * TILE_SIZE };
 
         if (t_wpos.x + TILE_SIZE < future_pos.x) continue;
@@ -127,14 +130,14 @@ fn List(<raylib::Vector2>) get_maybe_colliding_tiles(raylib::Vector2 pos) {
 }
 
 fn Chunk* chunk_for_tile(int x, int y) {
-	int chunk_x = (int)$$floor(x / 128.0);
-	int chunk_y = (int)$$floor(y / 128.0);
+	int chunk_x = (int)$$floor(x / (double)CHUNK_SIZE);
+	int chunk_y = (int)$$floor(y / (double)CHUNK_SIZE);
 
 	Chunk* target_chunk = null;
 
 	// Yes this sux but idk a better way atm.................!
 	String chunk_key = std::core::string::tformat("%d,%d", chunk_x, chunk_y);
-	io::printf("%d, %d\n", x, chunk_x);
+	// io::printf("%d, %d\n", x, chunk_x);
 
 	if (try maybe_chunk = chunks.get(chunk_key)) {
 		return maybe_chunk;
@@ -153,8 +156,8 @@ fn ushort get_tile(int x, int y) {
 	Chunk* target_chunk = chunk_for_tile(x, y);
 
 	return target_chunk.tiles[
-		$$abs(x % 128)
-		+ ($$abs(y % 128) * 128)
+		$$abs(x % CHUNK_SIZE)
+		+ ($$abs(y % CHUNK_SIZE) * CHUNK_SIZE)
 	];
 }
 
@@ -162,22 +165,22 @@ fn void set_tile(int x, int y, ushort tile) {
 	Chunk* target_chunk = chunk_for_tile(x, y);
 
 	target_chunk.tiles[
-		$$abs(x % 128)
-		+ ($$abs(y % 128) * 128)
+		$$abs(x % CHUNK_SIZE)
+		+ ($$abs(y % CHUNK_SIZE) * CHUNK_SIZE)
 	] = tile;
 }
 
 fn Chunk gen_chunk(int chunk_x, int chunk_y) {
 	io::printf("Generating %d %d\n", chunk_x, chunk_y);
 
-	int base_x = chunk_x * 128;
-	int base_y = chunk_y * 128;
+	int base_x = chunk_x * CHUNK_SIZE;
+	int base_y = chunk_y * CHUNK_SIZE;
 
-	ushort[128*128] tiles;
+	ushort[CHUNK_SIZE * CHUNK_SIZE] tiles;
 
-	for (int x = 0; x < 128; x++) {
-		for (int y = 0; y < 128; y++) {
-			tiles[x + (y * 128)] = gen_tile(base_x + x, base_y + y);
+	for (int x = 0; x < CHUNK_SIZE; x++) {
+		for (int y = 0; y < CHUNK_SIZE; y++) {
+			tiles[x + (y * CHUNK_SIZE)] = gen_tile(base_x + x, base_y + y);
 		}
 	}
 
@@ -201,16 +204,16 @@ fn ushort gen_tile(int x, int y) {
 
 fn void render_tiles() {
 	foreach (chunk : chunks.value_tlist()) {
-		for (int x = 0; x < 128; x++) {
-			for (int y = 0; y < 128; y++) {
-				uint tile = chunk.tiles[x + (128 * y)];
+		for (int x = 0; x < CHUNK_SIZE; x++) {
+			for (int y = 0; y < CHUNK_SIZE; y++) {
+				uint tile = chunk.tiles[x + (CHUNK_SIZE * y)];
 				if (!tile) continue;
 
 				raylib::draw_texture_ex(
 					tiles[tile - 1],
 					raylib::Vector2 {
-						(float) ((chunk.position.x * 128) + x) * TILE_SIZE,
-						(float) ((chunk.position.y * 128) + y) * TILE_SIZE,
+						(float) ((chunk.position.x * CHUNK_SIZE) + x) * TILE_SIZE,
+						(float) ((chunk.position.y * CHUNK_SIZE) + y) * TILE_SIZE,
 					},
 					0.0,
 					2.0,
