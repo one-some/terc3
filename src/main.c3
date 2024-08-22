@@ -70,17 +70,25 @@ fn void spawn_bomb(raylib::Vector2 stupid_hehehe) {
 }
 
 fn void player_physics() {
-	if (raylib::is_key_down(raylib::keyboard::D)) player.position.x += 5.0;
-	if (raylib::is_key_down(raylib::keyboard::A)) player.position.x -= 5.0;
+	if (raylib::is_key_down(raylib::keyboard::D)) player.velocity.x = 5.0;
+	if (raylib::is_key_down(raylib::keyboard::A)) player.velocity.x = -5.0;
 
 	player.velocity.y = (float)$$min(9.8, player.velocity.y + 0.31);
     bool on_ground = false;
 
-	List(<raylib::Vector2>) tiles = get_maybe_colliding_tiles();
+	raylib::Vector2 future_pos = player.position;
+	future_pos.y += player.velocity.y;
+	future_pos.x += player.velocity.x;
+
+	List(<raylib::Vector2>) tiles = get_maybe_colliding_tiles(future_pos);
 	foreach (tile : tiles) {
 		//raylib::draw_rectangle((int)tile.x * TILE_SIZE, (int)tile.y * TILE_SIZE, TILE_SIZE, TILE_SIZE, raylib::GREEN);
 
-		if (!get_tile((int)tile.x, (int)tile.y)) continue;
+		if (!get_tile((int)(tile.x), (int)(tile.y))) continue;
+		if (tile.x + TILE_SIZE < future_pos.x) continue;
+		if (tile.x > future_pos.x + player.size.x) continue;
+
+		player.velocity.x = 0;
 		player.velocity.y = 0;
         on_ground = true;
     }
@@ -88,6 +96,7 @@ fn void player_physics() {
 
 	if (on_ground && raylib::is_key_down(raylib::keyboard::SPACE)) player.velocity.y -= 12.0;
 
+	player.position.x += player.velocity.x;
 	player.position.y += player.velocity.y;
 
 	if (raylib::is_mouse_button_pressed(raylib::MouseButton.BUTTON_LEFT)) {
@@ -96,12 +105,12 @@ fn void player_physics() {
 	}
 }
 
-fn List(<raylib::Vector2>) get_maybe_colliding_tiles() {
+fn List(<raylib::Vector2>) get_maybe_colliding_tiles(raylib::Vector2 pos) {
 	List(<raylib::Vector2>) tiles;
     tiles.new_init();
 
-	for (int x = (int)$$floor(player.position.x / TILE_SIZE); x < (int)$$ceil((player.position.x + player.size.x) / TILE_SIZE); x++) {
-		for (int y = (int)$$floor(player.position.y / TILE_SIZE); y < (int)$$ceil((player.position.y + player.size.y) / TILE_SIZE); y++) {
+	for (int x = (int)$$floor(pos.x / TILE_SIZE); x < (int)$$ceil((pos.x + player.size.x) / TILE_SIZE); x++) {
+		for (int y = (int)$$floor(pos.y / TILE_SIZE); y < (int)$$ceil((pos.y + player.size.y) / TILE_SIZE); y++) {
 			tiles.push(raylib::Vector2 { x, y });
 		}
 	}
@@ -133,9 +142,6 @@ fn Chunk* chunk_for_tile(int x, int y) {
 }
 
 fn ushort get_tile(int x, int y) {
-	assert (x < 128);
-	assert (y < 128);
-
 	Chunk* target_chunk = chunk_for_tile(x, y);
 
 	return target_chunk.tiles[
