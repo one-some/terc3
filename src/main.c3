@@ -190,7 +190,7 @@ fn Chunk gen_chunk(int chunk_x, int chunk_y) {
 fn ushort gen_tile(int x, int y) {
 	double dx = x;
 	double yy = ($$sin(dx / 5.0) + 1.0) * 6.0;
-	// yy *= $$sin(dx / 10.0);
+	yy *= $$sin(dx / 10.0);
 
 	int yi = (int)$$round(yy);
 
