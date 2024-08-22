@@ -71,7 +71,7 @@ fn void spawn_bomb(raylib::Vector2 stupid_hehehe) {
 }
 
 fn void player_physics() {
-    // FIXME: W
+    // FIXME: plrsssdsasserreeee fix meeee opelassderi love jamieei love jamie hehehehehehe
     player.velocity.x = 0;
 	if (raylib::is_key_down(raylib::keyboard::D)) player.velocity.x = 5.0;
 	if (raylib::is_key_down(raylib::keyboard::A)) player.velocity.x = -5.0;
