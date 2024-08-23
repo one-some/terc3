@@ -27,6 +27,7 @@ struct Bomb {
 struct Chunk {
 	raylib::Vector2 position;
 	ushort[CHUNK_SIZE*CHUNK_SIZE] tiles;
+	ushort[CHUNK_SIZE*CHUNK_SIZE] bg_tiles;
 }
 
 struct Tile {
@@ -267,17 +268,27 @@ fn Chunk gen_chunk(int chunk_x, int chunk_y) {
 	int base_y = chunk_y * CHUNK_SIZE;
 
 	ushort[CHUNK_SIZE * CHUNK_SIZE] tiles;
+	ushort[CHUNK_SIZE * CHUNK_SIZE] bg_tiles;
 
 	for (int x = 0; x < CHUNK_SIZE; x++) {
 		for (int y = 0; y < CHUNK_SIZE; y++) {
-			tiles[x + (y * CHUNK_SIZE)] = gen_tile(base_x + x, base_y + y);
+            int index = x + (y * CHUNK_SIZE);
+            ushort tile_id = gen_tile(base_x + x, base_y + y); 
+			tiles[index] = tile_id;
+            bg_tiles[index] = gen_bg_tile(base_x + x, base_y + y, tile_id);
 		}
 	}
 
 	return Chunk {
 		raylib::Vector2 { chunk_x, chunk_y },
-		tiles
+		tiles,
+        bg_tiles
 	};
+}
+
+fn ushort gen_bg_tile(int x, int y, ushort tile) {
+    if (tile == 7) return 3;
+    return tile;
 }
 
 fn ushort gen_tile(int x, int y) {
@@ -289,7 +300,13 @@ fn ushort gen_tile(int x, int y) {
 
 	int rock_level = yi + 12 + (int)($$cos(dx / 40.0) * 9.0);
 
-	if (y > rock_level) return 3;
+	if (y > rock_level) {
+        int rand_level = $$min(10, y);
+        if (raylib::get_random_value(0, rand_level) == 0) return 7;
+        return 3;
+    }
+
+
 	if (y > yi) return 1;
 	if (y == yi) return 2;
 
@@ -300,19 +317,34 @@ fn void render_tiles() {
 	foreach (chunk : chunks.value_tlist()) {
 		for (int x = 0; x < CHUNK_SIZE; x++) {
 			for (int y = 0; y < CHUNK_SIZE; y++) {
-				uint tile = chunk.tiles[x + (CHUNK_SIZE * y)];
-				if (!tile) continue;
+				int index = x + (CHUNK_SIZE * y);
 
-				raylib::draw_texture_ex(
-					tile_list[tile].texture,
-					raylib::Vector2 {
-						(float) ((chunk.position.x * CHUNK_SIZE) + x) * TILE_SIZE,
-						(float) ((chunk.position.y * CHUNK_SIZE) + y) * TILE_SIZE,
-					},
-					0.0,
-					2.0,
-					raylib::WHITE
-				);
+                raylib::Vector2 draw_pos = raylib::Vector2 {
+                    (float) ((chunk.position.x * CHUNK_SIZE) + x) * TILE_SIZE,
+                    (float) ((chunk.position.y * CHUNK_SIZE) + y) * TILE_SIZE,
+                };
+
+				uint bg_tile = chunk.bg_tiles[index];
+				if (bg_tile) {
+                    raylib::draw_texture_ex(
+                        tile_list[bg_tile].texture,
+                        draw_pos,
+                        0.0,
+                        2.0,
+                        raylib::GRAY
+                    );
+                }
+
+				uint tile = chunk.tiles[index];
+				if (tile) {
+                    raylib::draw_texture_ex(
+                        tile_list[tile].texture,
+                        draw_pos,
+                        0.0,
+                        2.0,
+                        raylib::WHITE
+                    );
+                }
 			}
 		}
 	}
@@ -346,6 +378,7 @@ fn int main(String[] args) {
 	tile_list.push(Tile { "Stone Brick", raylib::load_texture("resources/stone_brick.png") });
 	tile_list.push(Tile { "Log", raylib::load_texture("resources/log.png") });
 	tile_list.push(Tile { "Leaves", raylib::load_texture("resources/leaves.png") });
+	tile_list.push(Tile { "Iron Ore", raylib::load_texture("resources/iron.png") });
 
 	for (ushort i = 0; i < tile_list.len(); i++) {
 		item_counts.set(i, 99);
