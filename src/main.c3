@@ -34,17 +34,19 @@ Player player = {
 	raylib::Vector2 { 0, 0 },
 };
 
+def ItemID = ushort;
+
 List(<Bomb>) bombs;
 HashMap(<String, Chunk*>) chunks;
-HashMap(<usz, int>) item_counts;
-usz item_index = 0;
+HashMap(<ItemID, int>) item_counts;
+usz cursor_index = 1;
 
 raylib::Camera2D camera;
 raylib::Texture2D ants_tex;
 raylib::Texture2D bomb_tex;
 Tile[10] tile_list;
 
-fn void add_item(usz id, int delta) {
+fn void add_item(ItemID id, int delta) {
 	int! count = item_counts.get(id);
 	
 	if (try count) {
@@ -55,7 +57,7 @@ fn void add_item(usz id, int delta) {
 }
 
 fn void harvest_tile(int x, int y) {
-	usz tile_id = get_tile(x, y);
+	ItemID tile_id = get_tile(x, y);
 	if (!tile_id) return;
 	add_item(tile_id, 1);
 	set_tile(x, y, 0);
@@ -73,14 +75,44 @@ fn void place(bool break_tile) {
 		return;
 	}
 
-	usz tile_id = get_tile(tile_x, tile_y);
+	if (item_counts.len() <= cursor_index) return;
+
+	ItemID active_place_id = item_counts.key_tlist()[cursor_index];
+	int! count = item_counts.get(active_place_id);
+	if (catch count) return;
+	if (!count) return;
+
+	ItemID tile_id = get_tile(tile_x, tile_y);
 	if (tile_id) return;
-	add_item(1, -1);
-	set_tile(tile_x, tile_y, 1);
+	add_item(active_place_id, -1);
+	set_tile(tile_x, tile_y, active_place_id);
 }
 
 fn void logic() {
 	player_physics();
+
+	if (raylib::is_mouse_button_down(raylib::MouseButton.BUTTON_LEFT)) {
+		place(true);
+	}
+
+	if (raylib::is_mouse_button_down(raylib::MouseButton.BUTTON_RIGHT)) {
+		place(false);
+	}
+
+	if (raylib::is_key_pressed(raylib::keyboard::B)) {
+		spawn_bomb(player.position);
+	}
+
+	if (raylib::is_key_pressed(raylib::keyboard::ONE)) cursor_index = 0;
+	if (raylib::is_key_pressed(raylib::keyboard::TWO)) cursor_index = 1;
+	if (raylib::is_key_pressed(raylib::keyboard::THREE)) cursor_index = 2;
+	if (raylib::is_key_pressed(raylib::keyboard::FOUR)) cursor_index = 3;
+	if (raylib::is_key_pressed(raylib::keyboard::FIVE)) cursor_index = 4;
+	if (raylib::is_key_pressed(raylib::keyboard::SIX)) cursor_index = 5;
+	if (raylib::is_key_pressed(raylib::keyboard::SEVEN)) cursor_index = 6;
+	if (raylib::is_key_pressed(raylib::keyboard::EIGHT)) cursor_index = 7;
+	if (raylib::is_key_pressed(raylib::keyboard::NINE)) cursor_index = 8;
+	if (raylib::is_key_pressed(raylib::keyboard::ZERO)) cursor_index = 8;
 	
 	double time = raylib::get_time();
 	foreach (bomb : bombs) {
@@ -156,18 +188,6 @@ fn void player_physics() {
 
 	player.position.x += player.velocity.x;
 	player.position.y += player.velocity.y;
-
-	if (raylib::is_mouse_button_down(raylib::MouseButton.BUTTON_LEFT)) {
-		place(true);
-	}
-
-	if (raylib::is_mouse_button_down(raylib::MouseButton.BUTTON_RIGHT)) {
-		place(false);
-	}
-
-	if (raylib::is_key_pressed(raylib::keyboard::B)) {
-		spawn_bomb(player.position);
-	}
 }
 
 fn List(<raylib::Vector2>) get_maybe_colliding_tiles(raylib::Vector2 pos) {
@@ -219,12 +239,12 @@ fn usz tile_index(int x, int y) @inline {
 	return (usz)(local_x + (local_y * CHUNK_SIZE));
 }
 
-fn ushort get_tile(int x, int y) {
+fn ItemID get_tile(int x, int y) {
 	Chunk* target_chunk = chunk_for_tile(x, y);
 	return target_chunk.tiles[tile_index(x, y)];
 }
 
-fn void set_tile(int x, int y, ushort tile) {
+fn void set_tile(int x, int y, ItemID tile) {
 	Chunk* target_chunk = chunk_for_tile(x, y);
 
 	target_chunk.tiles[tile_index(x, y)] = tile;
@@ -369,7 +389,7 @@ fn int main(String[] args) {
 				32,
 				(int)y_level,
 				24,
-				raylib::BLACK
+				i == cursor_index ? raylib::RED : raylib::BLACK,
 			);
 		}
 
