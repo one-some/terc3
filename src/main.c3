@@ -11,6 +11,12 @@ struct Player {
 	raylib::Vector2 position;
 	raylib::Vector2 size;
 	raylib::Vector2 velocity;
+	bool on_ground;
+}
+
+struct Vector2i {
+	int x;
+	int y;
 }
 
 struct Bomb {
@@ -29,14 +35,16 @@ struct Tile {
 }
 
 Player player = {
-	raylib::Vector2 { 10, 0 },
+	raylib::Vector2 { 10, -128 },
 	raylib::Vector2 { 28, 64 },
 	raylib::Vector2 { 0, 0 },
+	false
 };
 
 def ItemID = ushort;
 
 List(<Bomb>) bombs;
+List(<Tile>) tile_list;
 HashMap(<String, Chunk*>) chunks;
 HashMap(<ItemID, int>) item_counts;
 usz cursor_index = 1;
@@ -44,7 +52,6 @@ usz cursor_index = 1;
 raylib::Camera2D camera;
 raylib::Texture2D ants_tex;
 raylib::Texture2D bomb_tex;
-Tile[10] tile_list;
 
 fn void add_item(ItemID id, int delta) {
 	int! count = item_counts.get(id);
@@ -63,29 +70,35 @@ fn void harvest_tile(int x, int y) {
 	set_tile(x, y, 0);
 }
 
-fn void place(bool break_tile) {
-	float global_mouse_x = raylib::get_mouse_x() + camera.target.x;
-	float global_mouse_y = raylib::get_mouse_y() + camera.target.y;
+fn Vector2i get_mouse_tpos() {
+	return Vector2i {
+		(int)($$floor(((raylib::get_mouse_x() / camera.zoom) + camera.target.x) / TILE_SIZE)),
+		(int)($$floor(((raylib::get_mouse_y() / camera.zoom) + camera.target.y) / TILE_SIZE)),
+	};
+}
 
-	int tile_x = (int)($$floor(global_mouse_x / TILE_SIZE));
-	int tile_y = (int)($$floor(global_mouse_y / TILE_SIZE));
+fn void place(bool break_tile) {
+	Vector2i tile_pos = get_mouse_tpos();
 
 	if (break_tile) {
-		harvest_tile(tile_x, tile_y);
+		harvest_tile(tile_pos.x, tile_pos.y);
 		return;
 	}
 
 	if (item_counts.len() <= cursor_index) return;
 
 	ItemID active_place_id = item_counts.key_tlist()[cursor_index];
+	// Don't place air!
+	if (!active_place_id) return;
+
 	int! count = item_counts.get(active_place_id);
 	if (catch count) return;
 	if (!count) return;
 
-	ItemID tile_id = get_tile(tile_x, tile_y);
+	ItemID tile_id = get_tile(tile_pos.x, tile_pos.y);
 	if (tile_id) return;
 	add_item(active_place_id, -1);
-	set_tile(tile_x, tile_y, active_place_id);
+	set_tile(tile_pos.x, tile_pos.y, active_place_id);
 }
 
 fn void logic() {
@@ -152,7 +165,8 @@ fn void player_physics() {
 	if (raylib::is_key_down(raylib::keyboard::A)) player.velocity.x = -5.0;
 
 	player.velocity.y = (float)$$min(9.8, player.velocity.y + 0.31);
-    bool on_ground = false;
+	if (player.on_ground && raylib::is_key_down(raylib::keyboard::SPACE)) player.velocity.y -= 12.0;
+    player.on_ground = false;
 
 	raylib::Vector2 future_pos = player.position;
 	future_pos.y += player.velocity.y;
@@ -173,18 +187,14 @@ fn void player_physics() {
         if (t_wpos.y > future_pos.y + player.size.y) continue;
 
 		bool sitting_collision = t_wpos.y + TILE_SIZE > future_pos.y + player.size.y;
-		//(t_wpos.x < future_pos.x + player.size.x) || (t_wpos.x + TILE_SIZE > future_pos.x);
-
-		//raylib::draw_rectangle((int)tile.x * TILE_SIZE, (int)tile.y * TILE_SIZE, TILE_SIZE, TILE_SIZE, sitting_collision ? raylib::BLUE : raylib::GOLD);
+		// raylib::draw_rectangle((int)tile.x * TILE_SIZE, (int)tile.y * TILE_SIZE, TILE_SIZE, TILE_SIZE, ceiling_collision ? raylib::PINK : raylib::GOLD);
 
 		if (!sitting_collision) player.velocity.x = 0;
 		player.velocity.y = 0;
-        on_ground = true;
+        player.on_ground = true;
         //break;
     }
 	colliding_tiles.free();
-
-	if (on_ground && raylib::is_key_down(raylib::keyboard::SPACE)) player.velocity.y -= 12.0;
 
 	player.position.x += player.velocity.x;
 	player.position.y += player.velocity.y;
@@ -277,8 +287,12 @@ fn ushort gen_tile(int x, int y) {
 
 	int yi = (int)$$round(yy);
 
-	if (y == yi) return 2;
+	int rock_level = yi + 12 + (int)($$cos(dx / 40.0) * 9.0);
+
+	if (y > rock_level) return 3;
 	if (y > yi) return 1;
+	if (y == yi) return 2;
+
 	return 0;
 }
 
@@ -290,7 +304,7 @@ fn void render_tiles() {
 				if (!tile) continue;
 
 				raylib::draw_texture_ex(
-					tile_list[tile - 1].texture,
+					tile_list[tile].texture,
 					raylib::Vector2 {
 						(float) ((chunk.position.x * CHUNK_SIZE) + x) * TILE_SIZE,
 						(float) ((chunk.position.y * CHUNK_SIZE) + y) * TILE_SIZE,
@@ -305,6 +319,7 @@ fn void render_tiles() {
 }
 
 fn int main(String[] args) {
+	tile_list.new_init();
 	bombs.new_init();
 	chunks.new_init();
 	item_counts.new_init();
@@ -323,30 +338,41 @@ fn int main(String[] args) {
 
 	bomb_tex = raylib::load_texture("resources/bomb.png");
 	ants_tex = raylib::load_texture("resources/ants.png");
-	tile_list[0] = Tile { "Dirt", raylib::load_texture("resources/dirt.png") };
-	tile_list[1] = Tile { "Grass", raylib::load_texture("resources/grass.png") };
+
+	tile_list.push(Tile { "Air", raylib::load_texture("resources/hi.png") });
+	tile_list.push(Tile { "Dirt", raylib::load_texture("resources/dirt.png") });
+	tile_list.push(Tile { "Grass", raylib::load_texture("resources/grass.png") });
+	tile_list.push(Tile { "Stone", raylib::load_texture("resources/stone.png") });
+	tile_list.push(Tile { "Stone Brick", raylib::load_texture("resources/stone_brick.png") });
+	tile_list.push(Tile { "Log", raylib::load_texture("resources/log.png") });
+	tile_list.push(Tile { "Leaves", raylib::load_texture("resources/leaves.png") });
+
+	for (ushort i = 0; i < tile_list.len(); i++) {
+		item_counts.set(i, 99);
+	}
 
 	while (!raylib::window_should_close()) {
 		raylib::begin_drawing();
 
 		raylib::clear_background(raylib::DARKBLUE);
 
+		camera.zoom += raylib::get_mouse_wheel_move_v().y / 100.0;
+		camera.zoom = $$max(0.01f, camera.zoom);
+
 		camera.target = player.position;
-		camera.target.x -= ((float)raylib::get_screen_width()) / 2;
-		camera.target.y -= ((float)raylib::get_screen_height()) / 2;
+		camera.target.x -= ((float)raylib::get_screen_width() / camera.zoom) / 2;
+		camera.target.y -= ((float)raylib::get_screen_height() / camera.zoom) / 2;
 
     	raylib::begin_mode2d(camera);
 			render_tiles();
 			raylib::draw_rectangle_v(player.position, player.size, raylib::RED);
 
-			float global_mouse_x = raylib::get_mouse_x() + camera.target.x;
-			float global_mouse_y = raylib::get_mouse_y() + camera.target.y;
-
+			Vector2i tpos = get_mouse_tpos();
 			raylib::draw_texture_ex(
 				ants_tex,
 				raylib::Vector2 {
-					(float)($$floor(global_mouse_x / TILE_SIZE) * TILE_SIZE),
-					(float)($$floor(global_mouse_y / TILE_SIZE) * TILE_SIZE),
+					(float)(tpos.x * TILE_SIZE),
+					(float)(tpos.y * TILE_SIZE),
 				},
 				0.0,
 				2.0,
@@ -358,9 +384,7 @@ fn int main(String[] args) {
 
 
 		foreach (i, item_id : item_counts.key_tlist()) {
-			if (!item_id) continue;
-
-			Tile item = tile_list[item_id - 1];
+			Tile item = tile_list[item_id];
 			int! count = item_counts.get(item_id);
 
 			if (catch count) {
