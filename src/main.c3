@@ -353,6 +353,8 @@ fn void save_chunk(Chunk* chunk, bool bg) {
         if (c == ',') path[i] = '_';
     }
 
+    io::printn(path);
+
     File! file = io::file::open(path, "wb");
     if (catch file) unreachable("Terrible things are happening on the filesystem");
 
