@@ -3,9 +3,10 @@ import std::io;
 import raylib;
 import std::collections::list;
 import std::collections::map;
+import libc;
 
 const TILE_SIZE = 32;
-const CHUNK_SIZE = 128;
+const CHUNK_SIZE = 32;
 
 struct Player {
 	raylib::Vector2 position;
@@ -19,15 +20,28 @@ struct Vector2i {
 	int y;
 }
 
+fn bool Vector2i.eq(&self, Vector2i that) {
+    return self.x == that.x && self.y == that.y;
+}
+
+fn Vector2i Vector2i.plus(&self, int x, int y) {
+    return {
+        self.x + x,
+        self.y + y,
+    };
+}
+
 struct Bomb {
 	double birthtime;
 	raylib::Vector2 position;
 }
 
 struct Chunk {
-	raylib::Vector2 position;
+	Vector2i position;
 	ushort[CHUNK_SIZE*CHUNK_SIZE] tiles;
 	ushort[CHUNK_SIZE*CHUNK_SIZE] bg_tiles;
+    bool fg_modified;
+    bool bg_modified;
 }
 
 struct Tile {
@@ -42,6 +56,13 @@ Player player = {
 	false
 };
 
+struct SelectedMineProgress {
+    double start_time;
+    Vector2i position;
+    double progress;
+}
+SelectedMineProgress mine_progress;
+
 def ItemID = ushort;
 
 List(<Bomb>) bombs;
@@ -49,6 +70,8 @@ List(<Tile>) tile_list;
 HashMap(<String, Chunk*>) chunks;
 HashMap(<ItemID, int>) item_counts;
 usz cursor_index = 1;
+bool sigint_hit = false;
+
 
 raylib::Camera2D camera;
 raylib::Texture2D ants_tex;
@@ -102,11 +125,60 @@ fn void place(bool break_tile) {
 	set_tile(tile_pos.x, tile_pos.y, active_place_id);
 }
 
+fn bool air_adjacent(Vector2i pos) {
+    // NOTE: Returns FALSE if tile is actually air
+
+    if (get_tile(pos.x, pos.y) == 0) return false;
+
+    for (int x_off = -1; x_off <= 1; x_off++) {
+        for (int y_off = -1; y_off <= 1; y_off++) {
+            if (get_tile(pos.x + x_off, pos.y + y_off) == 0) return true;
+        }
+    }
+
+    return false;
+}
+
+fn double mine_time(ItemID tile) {
+    if (tile == 3) return 2.0;
+    if (tile == 4) return 2.0;
+    if (tile == 6) return 0.1;
+    if (tile == 7) return 3.0;
+    return 0.3;
+}
+
+fn void mine_held() {
+    double time = raylib::get_time();
+    Vector2i tile_pos = get_mouse_tpos();
+
+    if (!mine_progress.start_time || !tile_pos.eq(mine_progress.position)) {
+        if (!air_adjacent(tile_pos)) {
+            mine_progress.start_time = 0.0;
+            return;
+        }
+        mine_progress.start_time = time;
+        mine_progress.position = tile_pos;
+        mine_progress.progress = 0.0;
+        return;
+    }
+
+    double time_needed = mine_time(get_tile(tile_pos.x, tile_pos.y));
+
+    mine_progress.progress = (time - mine_progress.start_time) / time_needed;
+
+    if (time - mine_progress.start_time < time_needed) return;
+
+    mine_progress.start_time = 0.0;
+    place(true);
+}
+
 fn void logic() {
 	player_physics();
 
-	if (raylib::is_mouse_button_down(raylib::MouseButton.BUTTON_LEFT)) {
-		place(true);
+	if (raylib::is_mouse_button_released(raylib::MouseButton.BUTTON_LEFT)) {
+        mine_progress.start_time = 0.0;
+    } else if (raylib::is_mouse_button_down(raylib::MouseButton.BUTTON_LEFT)) {
+        mine_held();
 	}
 
 	if (raylib::is_mouse_button_down(raylib::MouseButton.BUTTON_RIGHT)) {
@@ -126,7 +198,7 @@ fn void logic() {
 	if (raylib::is_key_pressed(raylib::keyboard::SEVEN)) cursor_index = 6;
 	if (raylib::is_key_pressed(raylib::keyboard::EIGHT)) cursor_index = 7;
 	if (raylib::is_key_pressed(raylib::keyboard::NINE)) cursor_index = 8;
-	if (raylib::is_key_pressed(raylib::keyboard::ZERO)) cursor_index = 8;
+	if (raylib::is_key_pressed(raylib::keyboard::ZERO)) cursor_index = 9;
 	
 	double time = raylib::get_time();
 	foreach (bomb : bombs) {
@@ -259,6 +331,82 @@ fn void set_tile(int x, int y, ItemID tile) {
 	Chunk* target_chunk = chunk_for_tile(x, y);
 
 	target_chunk.tiles[tile_index(x, y)] = tile;
+    target_chunk.fg_modified = true;
+}
+
+fn void save_chunks() {
+	foreach (chunk : chunks.value_tlist()) {
+        if (chunk.fg_modified) save_chunk(chunk, false);
+        if (chunk.bg_modified) save_chunk(chunk, true);
+    }
+}
+
+fn void save_chunk(Chunk* chunk, bool bg) {
+    String path = std::core::string::tformat(
+        bg ? "world/BG%d,%d" : "world/FG%d,%d",
+        chunk.position.x,
+        chunk.position.y
+    );
+
+    // Clean for filesystem (just in case....)
+    foreach (i, c : path) {
+        if (c == ',') path[i] = '_';
+    }
+
+    File! file = io::file::open(path, "wb");
+    if (catch file) unreachable("Terrible things are happening on the filesystem");
+
+    char[CHUNK_SIZE*CHUNK_SIZE*2] tile_buf;
+    foreach (i, tile : (bg ? chunk.bg_tiles : chunk.tiles)) {
+        tile_buf[i * 2] = (char)(tile >> 8);
+        tile_buf[(i * 2) + 1] = (char)(tile & 0xFF);
+    }
+
+    file.write(&tile_buf)!!;
+    file.close()!!;
+}
+
+fn void load_chunks() {
+    io::path::Path! path = io::path::new_cwd().new_append("world")!!;
+
+    foreach (file_path : io::path::new_ls(path)!!) {
+        // Im sure theres a better way to do this
+        char[] data = io::file::load_new(
+            io::path::new(path.path_string).new_append(file_path.path_string).path_string
+        )!!;
+
+        String[] s_coords = file_path.path_string[2..].split("_");
+        Vector2i chunk_pos = { s_coords[0].to_int()!!, s_coords[1].to_int()!! };
+        String chunk_key = std::core::string::tformat("%d,%d", chunk_pos.x, chunk_pos.y);
+
+        ushort[CHUNK_SIZE*CHUNK_SIZE] tile_buf;
+        for (int i = 0; i < tile_buf.len; i++) {
+            tile_buf[i] = (data[i * 2] << 8) | (data[(i * 2) + 1] & 0xFF);
+        }
+
+        bool is_bg = file_path.path_string[0..2] == "BG";
+
+        Chunk* chunk;
+        bool chunk_existing = false;
+
+        if (try maybe_chunk = chunks.get(chunk_key)) {
+            chunk = maybe_chunk;
+            chunk_existing = true;
+        } else {
+            chunk = mem::new(Chunk);
+            chunk.position = chunk_pos;
+        }
+
+        if (is_bg) {
+            chunk.bg_tiles = tile_buf;
+            chunk.bg_modified = true;
+        } else {
+            chunk.tiles = tile_buf;
+            chunk.fg_modified = true;
+        }
+
+        if (!chunk_existing) chunks.set(chunk_key, chunk);
+    }
 }
 
 fn Chunk gen_chunk(int chunk_x, int chunk_y) {
@@ -280,9 +428,11 @@ fn Chunk gen_chunk(int chunk_x, int chunk_y) {
 	}
 
 	return Chunk {
-		raylib::Vector2 { chunk_x, chunk_y },
+		{ chunk_x, chunk_y },
 		tiles,
-        bg_tiles
+        bg_tiles,
+        false,
+        false,
 	};
 }
 
@@ -301,7 +451,7 @@ fn ushort gen_tile(int x, int y) {
 	int rock_level = yi + 12 + (int)($$cos(dx / 40.0) * 9.0);
 
 	if (y > rock_level) {
-        int rand_level = $$min(10, y);
+        int rand_level = $$min(50, y);
         if (raylib::get_random_value(0, rand_level) == 0) return 7;
         return 3;
     }
@@ -318,10 +468,14 @@ fn void render_tiles() {
 		for (int x = 0; x < CHUNK_SIZE; x++) {
 			for (int y = 0; y < CHUNK_SIZE; y++) {
 				int index = x + (CHUNK_SIZE * y);
+                Vector2i tile_pos = {
+                    (chunk.position.x * CHUNK_SIZE) + x,
+                    (chunk.position.y * CHUNK_SIZE) + y,
+                };
 
                 raylib::Vector2 draw_pos = raylib::Vector2 {
-                    (float) ((chunk.position.x * CHUNK_SIZE) + x) * TILE_SIZE,
-                    (float) ((chunk.position.y * CHUNK_SIZE) + y) * TILE_SIZE,
+                    (float)tile_pos.x * TILE_SIZE,
+                    (float)tile_pos.y * TILE_SIZE,
                 };
 
 				uint bg_tile = chunk.bg_tiles[index];
@@ -345,16 +499,97 @@ fn void render_tiles() {
                         raylib::WHITE
                     );
                 }
+
+                if (mine_progress.start_time && tile_pos.eq(mine_progress.position)) {
+                    raylib::draw_rectangle_v(
+                        {
+                            (float)(tile_pos.x * TILE_SIZE),
+                            (float)(tile_pos.y * TILE_SIZE),
+                        },
+                        {32, 32},
+                        raylib::fade(raylib::WHITE, (float)mine_progress.progress / 3),
+                    );
+                }
 			}
 		}
 	}
 }
 
+fn void render_hotbar() {
+    int screen_width = raylib::get_screen_width();
+    int screen_height = raylib::get_screen_height();
+
+    const HOTBAR_ITEM_WIDTH = 48;
+    const MARGIN = 4;
+    const HOTBAR_WIDTH = (HOTBAR_ITEM_WIDTH + MARGIN) * 10;
+
+    int hotbar_start = (screen_width - HOTBAR_WIDTH) / 2;
+
+    ItemID[] item_ids= item_counts.key_tlist();
+
+    for (int i = 10; i >= 0; i--) {
+        raylib::Vector2 pos = {
+            (float)(hotbar_start + ((HOTBAR_ITEM_WIDTH + MARGIN) * i)),
+            (float)(screen_height - HOTBAR_ITEM_WIDTH),
+        };
+
+        raylib::draw_rectangle_v(
+            pos,
+            {HOTBAR_ITEM_WIDTH, HOTBAR_ITEM_WIDTH},
+            (i == cursor_index) ? raylib::RED : raylib::BLACK,
+        );
+
+        if (i >= item_ids.len) continue;
+
+        ItemID item_id = item_ids[i];
+
+        Tile item = tile_list[item_id];
+        int! count = item_counts.get(item_id);
+        if (catch count) unreachable("Hello what the hell!");
+
+        raylib::draw_texture_ex(
+            item.texture,
+            pos,
+            0.0,
+            (float)HOTBAR_ITEM_WIDTH / 16.0f,
+            raylib::WHITE
+        );
+
+        raylib::draw_text(
+            string::tformat_zstr("%d", count),
+            ((int)pos.x) + HOTBAR_ITEM_WIDTH - 26,
+            (int)pos.y,
+            24,
+            i == cursor_index ? raylib::RED : raylib::BLACK,
+        );
+    }
+}
+
+fn void sig_ignore() {
+    for (int i = 0; i < 17; i++) {
+        io::printn("Do not do that!");
+    }
+    sigint_hit = true;
+}
+
+fn bool window_should_close() {
+    return sigint_hit || raylib::window_should_close();
+}
+
 fn int main(String[] args) {
+    io::printn("Early init...");
+
+    raylib::set_trace_log_level(raylib::TraceLogLevel.WARNING);
+    libc::signal(libc::SIGINT, (SignalFunction)&sig_ignore);
+
 	tile_list.new_init();
 	bombs.new_init();
 	chunks.new_init();
 	item_counts.new_init();
+
+    io::printn("Loading chunks...");
+
+    load_chunks();
 
 	camera = {
 		raylib::Vector2 { 0, 0 },
@@ -368,6 +603,7 @@ fn int main(String[] args) {
 	raylib::init_window(800, 800, "HELLO");
 	raylib::set_target_fps(60);
 
+    io::printn("Loading textures...");
 	bomb_tex = raylib::load_texture("resources/bomb.png");
 	ants_tex = raylib::load_texture("resources/ants.png");
 
@@ -384,12 +620,14 @@ fn int main(String[] args) {
 		item_counts.set(i, 99);
 	}
 
-	while (!raylib::window_should_close()) {
+    io::printn("Go time!");
+
+	while (!window_should_close()) {
 		raylib::begin_drawing();
 
 		raylib::clear_background(raylib::DARKBLUE);
 
-		camera.zoom += raylib::get_mouse_wheel_move_v().y / 100.0;
+		camera.zoom += raylib::get_mouse_wheel_move_v().y / 10.0;
 		camera.zoom = $$max(0.01f, camera.zoom);
 
 		camera.target = player.position;
@@ -415,40 +653,7 @@ fn int main(String[] args) {
 			logic();
 		raylib::end_mode2d();
 
-
-		foreach (i, item_id : item_counts.key_tlist()) {
-			Tile item = tile_list[item_id];
-			int! count = item_counts.get(item_id);
-
-			if (catch count) {
-				unreachable("Hello what the hell!");
-			}
-
-			float y_level = 46.0f * (i + 1.0f);
-
-			raylib::draw_texture_ex(
-				item.texture,
-				raylib::Vector2 {
-					0,
-					y_level,
-				},
-				0.0,
-				2.0,
-				raylib::WHITE
-			);
-
-			raylib::draw_text(
-				string::tformat_zstr(
-					"%s: %d",
-					item.name,
-					count,
-				),
-				32,
-				(int)y_level,
-				24,
-				i == cursor_index ? raylib::RED : raylib::BLACK,
-			);
-		}
+        render_hotbar();
 
         raylib::draw_text(
             string::tformat_zstr(
@@ -465,6 +670,9 @@ fn int main(String[] args) {
 		raylib::end_drawing();
 	}
 
+    save_chunks();
+
+    io::printn("Goodbye!");
 	raylib::close_window();
 	return 0;
 }
