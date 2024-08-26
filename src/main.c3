@@ -76,23 +76,42 @@ def ItemID = ushort;
 List(<Bomb>) bombs;
 List(<Tile>) tile_list;
 HashMap(<String, Chunk*>) chunks;
-HashMap(<ItemID, int>) item_counts;
 usz cursor_index = 1;
 bool sigint_hit = false;
-bool inventory_open = true;
+bool inventory_open = false;
 
 raylib::Camera2D camera;
 raylib::Texture2D ants_tex;
 raylib::Texture2D bomb_tex;
 
 fn void add_item(ItemID id, int delta) {
-	int! count = item_counts.get(id);
-	
-	if (try count) {
-		item_counts.set(id, $$max(0, count + delta));
-	} else {
-		item_counts.set(id, $$max(0, delta));
-	}
+    foreach (i, slot : inventory) {
+        if (slot.item != id) continue;
+        inventory[i].count += delta;
+
+        // Clear item if decrementing all of 'em
+        if (inventory[i].count <= 0) {
+            inventory[i] = {0, 0};
+        }
+
+        return;
+    }
+
+    foreach (i, slot : inventory) {
+        if (slot.item) continue;
+        inventory[i] = { id, delta };
+        return;
+    }
+
+    io::printn("Out of inventory space!!!!!");
+}
+
+fn bool has_item(ItemID id) {
+    foreach (i, slot : inventory) {
+        if (slot.item != id) continue;
+        return true;
+    }
+    return false;
 }
 
 fn void harvest_tile(int x, int y) {
@@ -117,20 +136,17 @@ fn void place(bool break_tile) {
 		return;
 	}
 
-	if (item_counts.len() <= cursor_index) return;
+    ItemID item_id = inventory[cursor_index].item;
 
-	ItemID active_place_id = item_counts.key_tlist()[cursor_index];
 	// Don't place air!
-	if (!active_place_id) return;
-
-	int! count = item_counts.get(active_place_id);
-	if (catch count) return;
-	if (!count) return;
+	if (!item_id) return;
+	if (!has_item(item_id)) return;
 
 	ItemID tile_id = get_tile(tile_pos.x, tile_pos.y);
 	if (tile_id) return;
-	add_item(active_place_id, -1);
-	set_tile(tile_pos.x, tile_pos.y, active_place_id);
+
+	add_item(item_id, -1);
+	set_tile(tile_pos.x, tile_pos.y, item_id);
 }
 
 fn bool air_adjacent(Vector2i pos) {
@@ -558,7 +574,6 @@ fn void render_ui() {
     const MARGIN = 4;
     const HOTBAR_WIDTH = (INVENTORY_ITEM_SIZE + MARGIN) * 10;
     int hotbar_start = (screen_width - HOTBAR_WIDTH) / 2;
-    ItemID[] item_ids= item_counts.key_tlist();
 
     for (int i = 9; i >= 0; i--) {
         raylib::Vector2 pos = {
@@ -568,6 +583,8 @@ fn void render_ui() {
 
         inventory[i].render(pos, i == cursor_index);
     }
+
+    if (!inventory_open) return;
 
     foreach (int i, slot : inventory[10..]) {
         Vector2i item_pos = { i % 10, 4 - (i / 10) };
