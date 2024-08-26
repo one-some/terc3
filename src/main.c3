@@ -7,6 +7,7 @@ import libc;
 
 const TILE_SIZE = 32;
 const CHUNK_SIZE = 32;
+const INVENTORY_ITEM_SIZE = 48;
 
 struct Player {
 	raylib::Vector2 position;
@@ -49,6 +50,13 @@ struct Tile {
 	raylib::Texture2D texture;
 }
 
+struct InventorySlot {
+    ItemID item;
+    int count;
+}
+
+InventorySlot[50] inventory;
+
 Player player = {
 	raylib::Vector2 { 10, -128 },
 	raylib::Vector2 { 28, 64 },
@@ -71,7 +79,7 @@ HashMap(<String, Chunk*>) chunks;
 HashMap(<ItemID, int>) item_counts;
 usz cursor_index = 1;
 bool sigint_hit = false;
-
+bool inventory_open = true;
 
 raylib::Camera2D camera;
 raylib::Texture2D ants_tex;
@@ -517,52 +525,62 @@ fn void render_tiles() {
 	}
 }
 
-fn void render_hotbar() {
+fn void InventorySlot.render(&self, raylib::Vector2 pos, bool highlighted) {
+    raylib::draw_rectangle_v(
+        pos,
+        {INVENTORY_ITEM_SIZE, INVENTORY_ITEM_SIZE},
+        highlighted ? raylib::RED : raylib::BLACK,
+    );
+
+    if (!self.item) return;
+
+    raylib::draw_texture_ex(
+        tile_list[self.item].texture,
+        pos,
+        0.0,
+        (float)INVENTORY_ITEM_SIZE / 16.0f,
+        raylib::WHITE
+    );
+
+    raylib::draw_text(
+        string::tformat_zstr("%d", self.count),
+        ((int)pos.x) + INVENTORY_ITEM_SIZE - 26,
+        (int)pos.y,
+        24,
+        highlighted ? raylib::RED : raylib::BLACK,
+    );
+}
+
+fn void render_ui() {
     int screen_width = raylib::get_screen_width();
     int screen_height = raylib::get_screen_height();
 
-    const HOTBAR_ITEM_WIDTH = 48;
     const MARGIN = 4;
-    const HOTBAR_WIDTH = (HOTBAR_ITEM_WIDTH + MARGIN) * 10;
-
+    const HOTBAR_WIDTH = (INVENTORY_ITEM_SIZE + MARGIN) * 10;
     int hotbar_start = (screen_width - HOTBAR_WIDTH) / 2;
-
     ItemID[] item_ids= item_counts.key_tlist();
 
-    for (int i = 10; i >= 0; i--) {
+    for (int i = 9; i >= 0; i--) {
         raylib::Vector2 pos = {
-            (float)(hotbar_start + ((HOTBAR_ITEM_WIDTH + MARGIN) * i)),
-            (float)(screen_height - HOTBAR_ITEM_WIDTH),
+            (float)(hotbar_start + ((INVENTORY_ITEM_SIZE + MARGIN) * i)),
+            (float)(screen_height - INVENTORY_ITEM_SIZE),
+        };
+
+        inventory[i].render(pos, i == cursor_index);
+    }
+
+    foreach (int i, slot : inventory[10..]) {
+        Vector2i item_pos = { i % 10, 4 - (i / 10) };
+
+        raylib::Vector2 pos = {
+            (float)(hotbar_start + ((INVENTORY_ITEM_SIZE + MARGIN) * item_pos.x)),
+            (float)((screen_height / 2) - ((INVENTORY_ITEM_SIZE + MARGIN) * (item_pos.y - 2))),
         };
 
         raylib::draw_rectangle_v(
             pos,
-            {HOTBAR_ITEM_WIDTH, HOTBAR_ITEM_WIDTH},
-            (i == cursor_index) ? raylib::RED : raylib::BLACK,
-        );
-
-        if (i >= item_ids.len) continue;
-
-        ItemID item_id = item_ids[i];
-
-        Tile item = tile_list[item_id];
-        int! count = item_counts.get(item_id);
-        if (catch count) unreachable("Hello what the hell!");
-
-        raylib::draw_texture_ex(
-            item.texture,
-            pos,
-            0.0,
-            (float)HOTBAR_ITEM_WIDTH / 16.0f,
-            raylib::WHITE
-        );
-
-        raylib::draw_text(
-            string::tformat_zstr("%d", count),
-            ((int)pos.x) + HOTBAR_ITEM_WIDTH - 26,
-            (int)pos.y,
-            24,
-            i == cursor_index ? raylib::RED : raylib::BLACK,
+            {INVENTORY_ITEM_SIZE, INVENTORY_ITEM_SIZE},
+            i == 0 ? raylib::RED : raylib::BLACK,
         );
     }
 }
@@ -587,7 +605,6 @@ fn int main(String[] args) {
 	tile_list.new_init();
 	bombs.new_init();
 	chunks.new_init();
-	item_counts.new_init();
 
     io::printn("Loading chunks...");
 
@@ -619,7 +636,7 @@ fn int main(String[] args) {
 	tile_list.push(Tile { "Iron Ore", raylib::load_texture("resources/iron.png") });
 
 	for (ushort i = 0; i < tile_list.len(); i++) {
-		item_counts.set(i, 99);
+        inventory[i] = { i + 1, 99 };
 	}
 
     io::printn("Go time!");
@@ -655,7 +672,7 @@ fn int main(String[] args) {
 			logic();
 		raylib::end_mode2d();
 
-        render_hotbar();
+        render_ui();
 
         raylib::draw_text(
             string::tformat_zstr(
