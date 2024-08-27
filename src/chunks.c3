@@ -9,12 +9,13 @@ import vector2;
 
 const TILE_SIZE = 32;
 const CHUNK_SIZE = 32;
+def ChunkData = ushort[CHUNK_SIZE * CHUNK_SIZE];
 HashMap(<String, Chunk*>) chunks;
 
 struct Chunk {
 	Vector2i position;
-	ushort[CHUNK_SIZE*CHUNK_SIZE] tiles;
-	ushort[CHUNK_SIZE*CHUNK_SIZE] bg_tiles;
+    ChunkData* tiles;
+    ChunkData* bg_tiles;
     bool fg_modified;
     bool bg_modified;
 }
@@ -63,7 +64,7 @@ fn Chunk* chunk_for_tile(int x, int y) {
 	io::printf("Gotta make chunk %d, %d\n", chunk_x, chunk_y);
 
 	Chunk* new_chunk = mem::new(Chunk);
-	*new_chunk = gen_chunk(chunk_x, chunk_y);
+	*new_chunk = gen_chunk({chunk_x, chunk_y});
 	chunks.set(chunk_key, new_chunk);
 
 	return new_chunk;
@@ -171,31 +172,33 @@ fn void load_chunks() {
     }
 }
 
-fn Chunk gen_chunk(int chunk_x, int chunk_y) {
-	io::printf("Generating %d %d\n", chunk_x, chunk_y);
+fn void Chunk.generate(&self, Vector2i pos, bool fg, bool bg) {
+    // HELLO. This is SO INEFFECIENT  SO like make it beteter.
 
-	int base_x = chunk_x * CHUNK_SIZE;
-	int base_y = chunk_y * CHUNK_SIZE;
-
-	ushort[CHUNK_SIZE * CHUNK_SIZE] tiles;
-	ushort[CHUNK_SIZE * CHUNK_SIZE] bg_tiles;
+	int base_x = pos.x * CHUNK_SIZE;
+	int base_y = pos.y * CHUNK_SIZE;
 
 	for (int x = 0; x < CHUNK_SIZE; x++) {
 		for (int y = 0; y < CHUNK_SIZE; y++) {
             int index = x + (y * CHUNK_SIZE);
-            ushort tile_id = gen_tile(base_x + x, base_y + y); 
-			tiles[index] = tile_id;
-            bg_tiles[index] = gen_bg_tile(base_x + x, base_y + y, tile_id);
+			if (fg) self.tiles[index] = gen_tile(base_x + x, base_y + y); 
+            if (bg) self.bg_tiles[index] = gen_bg_tile(base_x + x, base_y + y, self.tiles[index]);
 		}
 	}
+}
 
-	return Chunk {
-		{ chunk_x, chunk_y },
-		tiles,
-        bg_tiles,
+fn Chunk gen_chunk(Vector2i pos) {
+	io::printf("Generating %d %d\n", pos.x, pos.y);
+
+	Chunk chunk = {
+		pos,
+        mem::new(ChunkData),
+        mem::new(ChunkData),
         false,
         false,
 	};
+
+    chunk.generate(pos, true, true);
 }
 
 fn void render_chunks() {
