@@ -85,13 +85,13 @@ fn usz tile_index(int x, int y) @inline {
 
 fn ItemID get_tile(int x, int y) {
 	Chunk* target_chunk = chunk_for_tile(x, y);
-	return target_chunk.tiles[tile_index(x, y)];
+	return (*target_chunk.tiles)[tile_index(x, y)];
 }
 
 fn void set_tile(int x, int y, ItemID tile) {
 	Chunk* target_chunk = chunk_for_tile(x, y);
 
-	target_chunk.tiles[tile_index(x, y)] = tile;
+	(*target_chunk.tiles)[tile_index(x, y)] = tile;
     target_chunk.fg_modified = true;
 }
 
@@ -142,9 +142,9 @@ fn void load_chunks() {
         Vector2i chunk_pos = { s_coords[0].to_int()!!, s_coords[1].to_int()!! };
         String chunk_key = std::core::string::tformat("%d,%d", chunk_pos.x, chunk_pos.y);
 
-        ushort[CHUNK_SIZE*CHUNK_SIZE] tile_buf;
+        ChunkData* tile_buf = mem::new(ChunkData);
         for (int i = 0; i < tile_buf.len; i++) {
-            tile_buf[i] = (data[i * 2] << 8) | (data[(i * 2) + 1] & 0xFF);
+            (*tile_buf)[i] = (data[i * 2] << 8) | (data[(i * 2) + 1] & 0xFF);
         }
 
         bool is_bg = file_path.path_string[0..2] == "BG";
@@ -170,19 +170,31 @@ fn void load_chunks() {
 
         if (!chunk_existing) chunks.set(chunk_key, chunk);
     }
+
+	foreach (chunk : chunks.value_tlist()) {
+        io::printn("GENERATING");
+        chunk.bg_tiles = mem::new(ChunkData);
+        chunk.generate(false, true);
+    }
 }
 
-fn void Chunk.generate(&self, Vector2i pos, bool fg, bool bg) {
+fn void Chunk.generate(&self, bool fg, bool bg) {
     // HELLO. This is SO INEFFECIENT  SO like make it beteter.
 
-	int base_x = pos.x * CHUNK_SIZE;
-	int base_y = pos.y * CHUNK_SIZE;
+	int base_x = self.position.x * CHUNK_SIZE;
+	int base_y = self.position.y * CHUNK_SIZE;
 
 	for (int x = 0; x < CHUNK_SIZE; x++) {
 		for (int y = 0; y < CHUNK_SIZE; y++) {
             int index = x + (y * CHUNK_SIZE);
-			if (fg) self.tiles[index] = gen_tile(base_x + x, base_y + y); 
-            if (bg) self.bg_tiles[index] = gen_bg_tile(base_x + x, base_y + y, self.tiles[index]);
+            ushort fg_tile = gen_tile(base_x + x, base_y + y); 
+			if (fg) (*self.tiles)[index] = fg_tile;
+
+            if (bg) (*self.bg_tiles)[index] = gen_bg_tile(base_x + x, base_y + y, fg_tile);
+
+            //ushort existing_tile = self.tiles ? (*self.tiles)[index] : gen_tile(base_x + x, base_y + y); 
+            //if (bg) (*self.bg_tiles)[index] = gen_bg_tile(base_x + x, base_y + y, existing_tile);
+            //if (bg) (*self.bg_tiles)[index] = 4;
 		}
 	}
 }
@@ -198,7 +210,8 @@ fn Chunk gen_chunk(Vector2i pos) {
         false,
 	};
 
-    chunk.generate(pos, true, true);
+    chunk.generate(true, true);
+    return chunk;
 }
 
 fn void render_chunks() {
@@ -216,7 +229,7 @@ fn void render_chunks() {
                     (float)tile_pos.y * TILE_SIZE,
                 };
 
-				uint bg_tile = chunk.bg_tiles[index];
+				uint bg_tile = (*chunk.bg_tiles)[index];
 				if (bg_tile) {
                     raylib::draw_texture_ex(
                         tiles::tile_list[bg_tile].texture,
@@ -227,7 +240,7 @@ fn void render_chunks() {
                     );
                 }
 
-				uint tile = chunk.tiles[index];
+				uint tile = (*chunk.tiles)[index];
 				if (tile) {
                     raylib::draw_texture_ex(
                         tiles::tile_list[tile].texture,
