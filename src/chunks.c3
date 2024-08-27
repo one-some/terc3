@@ -1,0 +1,251 @@
+import raylib;
+import std::collections::map;
+import std::io;
+
+import tiles;
+import inventory;
+import terc3;
+import vector2;
+
+const TILE_SIZE = 32;
+const CHUNK_SIZE = 32;
+HashMap(<String, Chunk*>) chunks;
+
+struct Chunk {
+	Vector2i position;
+	ushort[CHUNK_SIZE*CHUNK_SIZE] tiles;
+	ushort[CHUNK_SIZE*CHUNK_SIZE] bg_tiles;
+    bool fg_modified;
+    bool bg_modified;
+}
+
+fn ushort gen_bg_tile(int x, int y, ushort tile) {
+    if (tile == 7) return 3;
+    return tile;
+}
+
+fn ushort gen_tile(int x, int y) {
+	double dx = x;
+	double yy = ($$sin(dx / 5.0) + 1.0) * 6.0;
+	yy *= $$sin(dx / 10.0);
+
+	int yi = (int)$$round(yy);
+
+	int rock_level = yi + 12 + (int)($$cos(dx / 40.0) * 9.0);
+
+	if (y > rock_level) {
+        int rand_level = $$min(50, y);
+        if (raylib::get_random_value(0, rand_level) == 0) return 7;
+        return 3;
+    }
+
+
+	if (y > yi) return 1;
+	if (y == yi) return 2;
+
+	return 0;
+}
+
+fn Chunk* chunk_for_tile(int x, int y) {
+	int chunk_x = (int)$$floor(x / (double)CHUNK_SIZE);
+	int chunk_y = (int)$$floor(y / (double)CHUNK_SIZE);
+
+	Chunk* target_chunk = null;
+
+	// Yes this sux but idk a better way atm.................!
+	String chunk_key = std::core::string::tformat("%d,%d", chunk_x, chunk_y);
+	// io::printf("%d, %d\n", x, chunk_x);
+
+	if (try maybe_chunk = chunks.get(chunk_key)) {
+		return maybe_chunk;
+	}
+
+	io::printf("Gotta make chunk %d, %d\n", chunk_x, chunk_y);
+
+	Chunk* new_chunk = mem::new(Chunk);
+	*new_chunk = gen_chunk(chunk_x, chunk_y);
+	chunks.set(chunk_key, new_chunk);
+
+	return new_chunk;
+}
+
+fn usz tile_index(int x, int y) @inline {
+	int local_x = x % CHUNK_SIZE;
+	if (local_x < 0) local_x = CHUNK_SIZE + local_x;
+
+	int local_y = y % CHUNK_SIZE;
+	if (local_y < 0) local_y = CHUNK_SIZE + local_y;
+
+	assert (local_x >= 0);
+	assert (local_y >= 0);
+
+	return (usz)(local_x + (local_y * CHUNK_SIZE));
+}
+
+fn ItemID get_tile(int x, int y) {
+	Chunk* target_chunk = chunk_for_tile(x, y);
+	return target_chunk.tiles[tile_index(x, y)];
+}
+
+fn void set_tile(int x, int y, ItemID tile) {
+	Chunk* target_chunk = chunk_for_tile(x, y);
+
+	target_chunk.tiles[tile_index(x, y)] = tile;
+    target_chunk.fg_modified = true;
+}
+
+fn void save_chunks() {
+	foreach (chunk : chunks.value_tlist()) {
+        if (chunk.fg_modified) save_chunk(chunk, false);
+        if (chunk.bg_modified) save_chunk(chunk, true);
+    }
+}
+
+fn void save_chunk(Chunk* chunk, bool bg) {
+    String path = std::core::string::tformat(
+        bg ? "world/BG%d,%d" : "world/FG%d,%d",
+        chunk.position.x,
+        chunk.position.y
+    );
+
+    // Clean for filesystem (just in case....)
+    foreach (i, c : path) {
+        if (c == ',') path[i] = '_';
+    }
+
+    io::printn(path);
+
+    File! file = io::file::open(path, "wb");
+    if (catch file) unreachable("Terrible things are happening on the filesystem");
+
+    char[CHUNK_SIZE*CHUNK_SIZE*2] tile_buf;
+    foreach (i, tile : (bg ? chunk.bg_tiles : chunk.tiles)) {
+        tile_buf[i * 2] = (char)(tile >> 8);
+        tile_buf[(i * 2) + 1] = (char)(tile & 0xFF);
+    }
+
+    file.write(&tile_buf)!!;
+    file.close()!!;
+}
+
+fn void load_chunks() {
+    io::path::Path! path = io::path::new_cwd().new_append("world")!!;
+
+    foreach (file_path : io::path::new_ls(path)!!) {
+        // Im sure theres a better way to do this
+        char[] data = io::file::load_new(
+            io::path::new(path.path_string).new_append(file_path.path_string).path_string
+        )!!;
+
+        String[] s_coords = file_path.path_string[2..].split("_");
+        Vector2i chunk_pos = { s_coords[0].to_int()!!, s_coords[1].to_int()!! };
+        String chunk_key = std::core::string::tformat("%d,%d", chunk_pos.x, chunk_pos.y);
+
+        ushort[CHUNK_SIZE*CHUNK_SIZE] tile_buf;
+        for (int i = 0; i < tile_buf.len; i++) {
+            tile_buf[i] = (data[i * 2] << 8) | (data[(i * 2) + 1] & 0xFF);
+        }
+
+        bool is_bg = file_path.path_string[0..2] == "BG";
+
+        Chunk* chunk;
+        bool chunk_existing = false;
+
+        if (try maybe_chunk = chunks.get(chunk_key)) {
+            chunk = maybe_chunk;
+            chunk_existing = true;
+        } else {
+            chunk = mem::new(Chunk);
+            chunk.position = chunk_pos;
+        }
+
+        if (is_bg) {
+            chunk.bg_tiles = tile_buf;
+            chunk.bg_modified = true;
+        } else {
+            chunk.tiles = tile_buf;
+            chunk.fg_modified = true;
+        }
+
+        if (!chunk_existing) chunks.set(chunk_key, chunk);
+    }
+}
+
+fn Chunk gen_chunk(int chunk_x, int chunk_y) {
+	io::printf("Generating %d %d\n", chunk_x, chunk_y);
+
+	int base_x = chunk_x * CHUNK_SIZE;
+	int base_y = chunk_y * CHUNK_SIZE;
+
+	ushort[CHUNK_SIZE * CHUNK_SIZE] tiles;
+	ushort[CHUNK_SIZE * CHUNK_SIZE] bg_tiles;
+
+	for (int x = 0; x < CHUNK_SIZE; x++) {
+		for (int y = 0; y < CHUNK_SIZE; y++) {
+            int index = x + (y * CHUNK_SIZE);
+            ushort tile_id = gen_tile(base_x + x, base_y + y); 
+			tiles[index] = tile_id;
+            bg_tiles[index] = gen_bg_tile(base_x + x, base_y + y, tile_id);
+		}
+	}
+
+	return Chunk {
+		{ chunk_x, chunk_y },
+		tiles,
+        bg_tiles,
+        false,
+        false,
+	};
+}
+
+fn void render_chunks() {
+	foreach (chunk : chunks.value_tlist()) {
+		for (int x = 0; x < CHUNK_SIZE; x++) {
+			for (int y = 0; y < CHUNK_SIZE; y++) {
+				int index = x + (CHUNK_SIZE * y);
+                Vector2i tile_pos = {
+                    (chunk.position.x * CHUNK_SIZE) + x,
+                    (chunk.position.y * CHUNK_SIZE) + y,
+                };
+
+                raylib::Vector2 draw_pos = raylib::Vector2 {
+                    (float)tile_pos.x * TILE_SIZE,
+                    (float)tile_pos.y * TILE_SIZE,
+                };
+
+				uint bg_tile = chunk.bg_tiles[index];
+				if (bg_tile) {
+                    raylib::draw_texture_ex(
+                        tiles::tile_list[bg_tile].texture,
+                        draw_pos,
+                        0.0,
+                        2.0,
+                        raylib::GRAY
+                    );
+                }
+
+				uint tile = chunk.tiles[index];
+				if (tile) {
+                    raylib::draw_texture_ex(
+                        tiles::tile_list[tile].texture,
+                        draw_pos,
+                        0.0,
+                        2.0,
+                        raylib::WHITE
+                    );
+                }
+
+                if (terc3::mine_progress.start_time && tile_pos.eq(terc3::mine_progress.position)) {
+                    raylib::draw_rectangle_v(
+                        {
+                            (float)(tile_pos.x * TILE_SIZE),
+                            (float)(tile_pos.y * TILE_SIZE),
+                        },
+                        {32, 32},
+                        raylib::fade(raylib::WHITE, (float)terc3::mine_progress.progress / 3),
+                    );
+                }
+			}
+		}
+	}
+}
