@@ -5,10 +5,15 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "c3c run",
             "type": "f5anything",
             "request": "launch",
-            "command": " & 'C:\\Program Files\\c3-windows-Release\\c3c.exe' run",
+            "name": "c3c run windows",
+            "windows": {
+                "command": " & 'C:\\Program Files\\c3-windows-Release\\c3c.exe' run",
+            },
+            "linux": {
+                "command": "c3c run",
+            },
         }
     ]
 }
