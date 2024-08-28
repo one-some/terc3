@@ -1,6 +1,7 @@
 module terc3;
 
 import ui;
+import uig;
 import libc;
 import raylib;
 import vector2;
@@ -294,11 +295,10 @@ fn int main(String[] args) {
 
     io::printn("Go time!");
 
-	UIBox* x = ui::uibox_new();
-	UIBox* y = ui::uibox_new();
-	y.background_color = raylib::GREEN;
-	y.parent = x;
-
+	UIGridContainer* grid = uig::new(<UIGridContainer>)();
+	for (int i = 0; i < 24; i++) {
+		UIBox* y = uig::new(<UIBox>)(grid);
+	}
 
 	while (!window_should_close()) {
 		raylib::begin_drawing();
