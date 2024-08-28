@@ -1,5 +1,6 @@
 module terc3;
 
+import ui;
 import libc;
 import raylib;
 import vector2;
@@ -15,17 +16,6 @@ struct Player {
 	raylib::Vector2 size;
 	raylib::Vector2 velocity;
 	bool on_ground;
-}
-
-fn bool Vector2i.eq(&self, Vector2i that) {
-    return self.x == that.x && self.y == that.y;
-}
-
-fn Vector2i Vector2i.plus(&self, int x, int y) {
-    return {
-        self.x + x,
-        self.y + y,
-    };
 }
 
 struct Bomb {
@@ -304,6 +294,12 @@ fn int main(String[] args) {
 
     io::printn("Go time!");
 
+	UIBox* x = ui::uibox_new();
+	UIBox* y = ui::uibox_new();
+	y.background_color = raylib::GREEN;
+	y.parent = x;
+
+
 	while (!window_should_close()) {
 		raylib::begin_drawing();
 
@@ -334,6 +330,8 @@ fn int main(String[] args) {
 
 			logic();
 		raylib::end_mode2d();
+
+		ui::render();
 
         render_ui();
 
