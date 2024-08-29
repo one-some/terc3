@@ -295,15 +295,6 @@ fn int main(String[] args) {
 
     chunks::load_chunks();
 
-	Vector2i screen_size = {
-		raylib::get_screen_width(),
-		raylib::get_screen_height(),
-	};
-
-	// TODO: GEN CHUNKXXX
-	chunks::get_tile(get_screen_tpos({0, 0}));
-	chunks::get_tile(get_screen_tpos(screen_size));
-
 	camera = {
 		raylib::Vector2 { 0, 0 },
 		raylib::Vector2 { 0, 0 },
@@ -334,6 +325,11 @@ fn int main(String[] args) {
 	//}
 
 	while (!raylib::window_should_close()) {
+		Vector2i screen_size = {
+			raylib::get_screen_width(),
+			raylib::get_screen_height(),
+		};
+
 		raylib::begin_drawing();
 
 		raylib::clear_background(raylib::DARKBLUE);
@@ -367,6 +363,15 @@ fn int main(String[] args) {
 		// ui::render();
         render_ui();
 
+		// TODO: GEN CHUNKXXX
+		Vector2i left_top = get_screen_tpos({0, 0});
+		Vector2i bottom_right = get_screen_tpos(screen_size);
+		for (int x = left_top.x; x < bottom_right.x; x++) {
+			for (int y = left_top.y; y < bottom_right.y; y++) {
+				chunks::chunk_for_tile(left_top.x, left_top.y);
+				chunks::chunk_for_tile(bottom_right.x, bottom_right.y);
+			}
+		}
 		
 		raylib::end_drawing();
 	}
