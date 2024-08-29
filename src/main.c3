@@ -59,11 +59,15 @@ fn void harvest_tile(Vector2i pos, bool bg_tile = false) {
 	chunks::set_tile(pos.x, pos.y, 0, bg_tile);
 }
 
-fn Vector2i get_mouse_tpos() {
+fn Vector2i get_screen_tpos(Vector2i screen_pos) {
 	return Vector2i {
-		(int)($$floor(((raylib::get_mouse_x() / camera.zoom) + camera.target.x) / chunks::TILE_SIZE)),
-		(int)($$floor(((raylib::get_mouse_y() / camera.zoom) + camera.target.y) / chunks::TILE_SIZE)),
+		(int)($$floor(((screen_pos.x / camera.zoom) + camera.target.x) / chunks::TILE_SIZE)),
+		(int)($$floor(((screen_pos.y / camera.zoom) + camera.target.y) / chunks::TILE_SIZE)),
 	};
+}
+
+fn Vector2i get_mouse_tpos() {
+	return get_screen_tpos({raylib::get_mouse_x(), raylib::get_mouse_y()});
 }
 
 fn void place(bool break_tile) {
@@ -291,6 +295,15 @@ fn int main(String[] args) {
 
     chunks::load_chunks();
 
+	Vector2i screen_size = {
+		raylib::get_screen_width(),
+		raylib::get_screen_height(),
+	};
+
+	// TODO: GEN CHUNKXXX
+	chunks::get_tile(get_screen_tpos({0, 0}));
+	chunks::get_tile(get_screen_tpos(screen_size));
+
 	camera = {
 		raylib::Vector2 { 0, 0 },
 		raylib::Vector2 { 0, 0 },
@@ -329,8 +342,8 @@ fn int main(String[] args) {
 		camera.zoom = $$max(0.01f, camera.zoom);
 
 		camera.target = player.position;
-		camera.target.x -= ((float)raylib::get_screen_width() / camera.zoom) / 2;
-		camera.target.y -= ((float)raylib::get_screen_height() / camera.zoom) / 2;
+		camera.target.x -= ((float)screen_size.x / camera.zoom) / 2;
+		camera.target.y -= ((float)screen_size.y / camera.zoom) / 2;
 
     	raylib::begin_mode2d(camera);
 			chunks::render_chunks();
