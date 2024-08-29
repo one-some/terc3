@@ -11,10 +11,11 @@ struct Tile {
 	raylib::Texture2D texture;
 }
 
-HashMap(<ItemID, Tile>) item2tile;
+HashMap(<ItemID, Tile*>) item2tile;
+Tile*[] tile_list;
 
 fn void new_from_item(Item* item) {
-	item2tile.set(item.id, { (TileID)item2tile.len(), item.name, item.texture });
+	item2tile.set(item.id, mem::new(Tile, { (TileID)item2tile.len(), item.name, item.texture }));
 }
 
 fn void register() {
@@ -27,4 +28,6 @@ fn void register() {
 	new_from_item(inventory::create_item("Log", raylib::load_texture("resources/log.png")));
 	new_from_item(inventory::create_item("Leaves", raylib::load_texture("resources/leaves.png")));
 	new_from_item(inventory::create_item("Iron Ore", raylib::load_texture("resources/iron.png")));
+
+	tile_list = item2tile.value_new_list();
 }
