@@ -368,8 +368,7 @@ fn int main(String[] args) {
 		Vector2i bottom_right = get_screen_tpos(screen_size);
 		for (int x = left_top.x; x < bottom_right.x; x++) {
 			for (int y = left_top.y; y < bottom_right.y; y++) {
-				chunks::chunk_for_tile(left_top.x, left_top.y);
-				chunks::chunk_for_tile(bottom_right.x, bottom_right.y);
+				chunks::chunk_for_tile(x, y);
 			}
 		}
 		
