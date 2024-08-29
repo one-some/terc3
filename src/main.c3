@@ -1,7 +1,8 @@
 module terc3;
 
-import ui;
-import uig;
+//import ui;
+//import uig;
+import chat;
 import libc;
 import raylib;
 import vector2;
@@ -67,17 +68,17 @@ fn void place(bool break_tile) {
 		return;
 	}
 
-    ItemID item_id = inventory::inventory[inventory::cursor_index].item;
+    ItemID item_id = inventory::selected_item().id; //inventory::inventory[inventory::cursor_index].item;
+	TileID! future_tile_id = tiles::item2tile.get(item_id).id;
 
-	// Don't place air!
-	if (!item_id) return;
+	if (catch future_tile_id) return;
 	if (!inventory::has_item(item_id)) return;
 
 	ItemID tile_id = chunks::get_tile(tile_pos.x, tile_pos.y);
 	if (tile_id) return;
 
 	inventory::add_item(item_id, -1);
-	chunks::set_tile(tile_pos.x, tile_pos.y, item_id);
+	chunks::set_tile(tile_pos.x, tile_pos.y, future_tile_id);
 }
 
 fn bool air_adjacent(Vector2i pos) {
@@ -244,7 +245,20 @@ fn List(<raylib::Vector2>) get_maybe_colliding_tiles(raylib::Vector2 pos) {
 }
 
 fn void render_ui() {
+	raylib::draw_text(
+		string::tformat_zstr(
+			"Player: (%f, %f)",
+			player.position.x,
+			player.position.y
+		),
+		0,
+		0,
+		24,
+		raylib::BLACK
+	);
+
 	inventory::render_inventory();
+	chat::render();
 }
 
 fn void sig_ignore() {
@@ -289,16 +303,16 @@ fn int main(String[] args) {
 
 	tiles::register();
 
-	for (ushort i = 0; i < tiles::tile_list.len(); i++) {
-		inventory::add_item(i + 1, 99);
+	for (ushort i = 0; i < inventory::item_list.len(); i++) {
+		inventory::add_item(i, 99);
 	}
 
     io::printn("Go time!");
 
-	UIGridContainer* grid = uig::new(<UIGridContainer>)();
-	for (int i = 0; i < 24; i++) {
-		UIBox* y = uig::new(<UIBox>)(grid);
-	}
+	//UIGridContainer* grid = uig::new(<UIGridContainer>)();
+	//for (int i = 0; i < 24; i++) {
+	//	UIBox* y = uig::new(<UIBox>)(grid);
+	//}
 
 	while (!window_should_close()) {
 		raylib::begin_drawing();
@@ -331,21 +345,9 @@ fn int main(String[] args) {
 			logic();
 		raylib::end_mode2d();
 
-		ui::render();
-
+		// ui::render();
         render_ui();
 
-        raylib::draw_text(
-            string::tformat_zstr(
-                "Player: (%f, %f)",
-                player.position.x,
-                player.position.y
-            ),
-            0,
-            0,
-            24,
-            raylib::BLACK
-        );
 		
 		raylib::end_drawing();
 	}

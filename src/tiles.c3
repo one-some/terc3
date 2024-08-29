@@ -1,21 +1,30 @@
 import raylib;
+import inventory;
+import std::collections::map;
 import std::collections::list;
 
+def TileID = ushort;
+
 struct Tile {
+	TileID id;
 	String name;
 	raylib::Texture2D texture;
 }
 
-List(<Tile>) tile_list;
+HashMap(<ItemID, Tile>) item2tile;
+
+fn void new_from_item(Item* item) {
+	item2tile.set(item.id, { (TileID)item2tile.len(), item.name, item.texture });
+}
 
 fn void register() {
-	//tile_list.new_init();
-	tile_list.push(Tile { "Air", raylib::load_texture("resources/hi.png") });
-	tile_list.push(Tile { "Dirt", raylib::load_texture("resources/dirt.png") });
-	tile_list.push(Tile { "Grass", raylib::load_texture("resources/grass.png") });
-	tile_list.push(Tile { "Stone", raylib::load_texture("resources/stone.png") });
-	tile_list.push(Tile { "Stone Brick", raylib::load_texture("resources/stone_brick.png") });
-	tile_list.push(Tile { "Log", raylib::load_texture("resources/log.png") });
-	tile_list.push(Tile { "Leaves", raylib::load_texture("resources/leaves.png") });
-	tile_list.push(Tile { "Iron Ore", raylib::load_texture("resources/iron.png") });
+	new_from_item(inventory::create_item("Air", raylib::load_texture("resources/hi.png")));
+	new_from_item(inventory::create_item("Dirt", raylib::load_texture("resources/dirt.png")));
+	new_from_item(inventory::create_item("Grass", raylib::load_texture("resources/grass.png")));
+	new_from_item(inventory::create_item("Stone", raylib::load_texture("resources/stone.png")));
+	new_from_item(inventory::create_item("Stone Brick", raylib::load_texture("resources/stone_brick.png")));
+	inventory::create_item("Synthium Pickaxe", raylib::load_texture("resources/pickaxe.png"));
+	new_from_item(inventory::create_item("Log", raylib::load_texture("resources/log.png")));
+	new_from_item(inventory::create_item("Leaves", raylib::load_texture("resources/leaves.png")));
+	new_from_item(inventory::create_item("Iron Ore", raylib::load_texture("resources/iron.png")));
 }

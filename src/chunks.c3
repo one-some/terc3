@@ -232,7 +232,7 @@ fn void render_chunks() {
 				uint bg_tile = (*chunk.bg_tiles)[index];
 				if (bg_tile) {
                     raylib::draw_texture_ex(
-                        tiles::tile_list[bg_tile].texture,
+                        tiles::item2tile.value_tlist()[bg_tile].texture,
                         draw_pos,
                         0.0,
                         2.0,
@@ -243,7 +243,7 @@ fn void render_chunks() {
 				uint tile = (*chunk.tiles)[index];
 				if (tile) {
                     raylib::draw_texture_ex(
-                        tiles::tile_list[tile].texture,
+                        tiles::item2tile.value_tlist()[tile].texture,
                         draw_pos,
                         0.0,
                         2.0,

@@ -1,7 +1,7 @@
 import raylib;
 import std::io;
+import std::collections::list;
 
-import tiles;
 import vector2;
 
 def ItemID = ushort;
@@ -16,6 +16,24 @@ const HAND_SLOT = 51;
 InventorySlot[51] inventory;
 bool inventory_open = false;
 int cursor_index = 1;
+
+struct Item {
+    ItemID id;
+    String name;
+    raylib::Texture2D texture;
+}
+
+List(<Item*>) item_list;
+
+fn Item* create_item(String name, raylib::Texture2D texture) {
+    Item* item = mem::new(Item, {(ItemID)item_list.len(), name, texture});
+    item_list.push(item);
+    return item;
+}
+
+fn Item* selected_item() {
+	return item_list[inventory[cursor_index].item];
+}
 
 fn void add_item(ItemID id, int delta) {
     foreach (i, slot : inventory) {
@@ -57,7 +75,7 @@ fn void InventorySlot.render(&self, raylib::Vector2 pos, bool highlighted) {
     if (!self.item) return;
 
     raylib::draw_texture_ex(
-        tiles::tile_list[self.item].texture,
+        item_list[self.item].texture,
         pos,
         0.0,
         (float)INVENTORY_ITEM_SIZE / 16.0f,
