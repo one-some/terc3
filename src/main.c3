@@ -96,6 +96,7 @@ fn bool air_adjacent(Vector2i pos) {
 }
 
 fn double mine_time(ItemID tile) {
+	if (inventory::selected_item().id == 5) return 0.1;
     if (tile == 3) return 2.0;
     if (tile == 4) return 2.0;
     if (tile == 6) return 0.1;
