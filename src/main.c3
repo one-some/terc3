@@ -127,7 +127,10 @@ fn void mine_held() {
 		|| !tile_pos.eq(mine_progress.position)
 		|| placing_bg != mine_progress.is_bg
 	) {
-        if (!air_adjacent({tile_pos, placing_bg})) {
+        //if (!air_adjacent({tile_pos, placing_bg})) {
+        if (get_screen_tpos(vector2::to_2i(player.position)).distance_to(tile_pos) > 20.0) {
+			io::printn("TODO: FIXME");
+			io::printn("ALSO SAVE NO WORK ON WINDOWS");
             mine_progress.start_time = 0.0;
             return;
         }
@@ -364,13 +367,19 @@ fn int main(String[] args) {
         render_ui();
 
 		// TODO: GEN CHUNKXXX
-		Vector2i left_top = get_screen_tpos({0, 0});
-		Vector2i bottom_right = get_screen_tpos(screen_size);
-		for (int x = left_top.x; x < bottom_right.x; x++) {
-			for (int y = left_top.y; y < bottom_right.y; y++) {
-				chunks::chunk_for_tile(x, y);
-			}
-		}
+	// 	Vector2i left_top = {
+	// 		(int)(camera.target.x) / chunks::TILE_SIZE,
+	// 		(int)(camera.target.y) / chunks::TILE_SIZE,
+	// 	};
+	// 	Vector2i bottom_right = {
+	// 		(int)(screen_size.x + camera.target.x) / chunks::TILE_SIZE,
+	// 		(int)(screen_size.y + camera.target.y) / chunks::TILE_SIZE,
+	// 	};
+	// 	for (int x = left_top.x; x < bottom_right.x; x++) {
+	// 		for (int y = left_top.y; y < bottom_right.y; y++) {
+	// 			chunks::chunk_for_tile(x, y);
+	// 		}
+	// 	}
 		
 		raylib::end_drawing();
 	}

@@ -182,6 +182,11 @@ fn void load_chunks() {
 
 	foreach (chunk : chunks.value_tlist()) {
         io::printn("GENERATING");
+        if (!chunk.tiles) {
+            chunk.tiles = mem::new(ChunkData);
+            chunk.generate(true, false);
+        }
+
         if (!chunk.bg_tiles) {
             chunk.bg_tiles = mem::new(ChunkData);
             chunk.generate(false, true);
