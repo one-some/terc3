@@ -83,23 +83,31 @@ fn usz tile_index(int x, int y) @inline {
 	return (usz)(local_x + (local_y * CHUNK_SIZE));
 }
 
-fn ItemID get_tile(int x, int y) {
+fn ItemID get_tile(int x, int y, bool bg_tile = false) {
 	Chunk* target_chunk = chunk_for_tile(x, y);
+	if (bg_tile) return (*target_chunk.bg_tiles)[tile_index(x, y)];
 	return (*target_chunk.tiles)[tile_index(x, y)];
 }
 
-fn void set_tile(int x, int y, ItemID tile) {
+fn void set_tile(int x, int y, ItemID tile, bool bg_tile = false) {
 	Chunk* target_chunk = chunk_for_tile(x, y);
 
+	if (bg_tile) {
+        (*target_chunk.bg_tiles)[tile_index(x, y)] = tile;
+        target_chunk.bg_modified = true;
+        return;
+    }
 	(*target_chunk.tiles)[tile_index(x, y)] = tile;
     target_chunk.fg_modified = true;
 }
 
-fn void save_chunks() {
+fn void save_chunks() @finalizer {
 	foreach (chunk : chunks.value_tlist()) {
         if (chunk.fg_modified) save_chunk(chunk, false);
         if (chunk.bg_modified) save_chunk(chunk, true);
     }
+
+    io::printn("Goodbye!");
 }
 
 fn void save_chunk(Chunk* chunk, bool bg) {
@@ -147,7 +155,8 @@ fn void load_chunks() {
             (*tile_buf)[i] = (data[i * 2] << 8) | (data[(i * 2) + 1] & 0xFF);
         }
 
-        bool is_bg = file_path.path_string[0..2] == "BG";
+        bool is_bg = file_path.path_string[0..1] == "BG";
+        io::printn(is_bg);
 
         Chunk* chunk;
         bool chunk_existing = false;
@@ -173,8 +182,10 @@ fn void load_chunks() {
 
 	foreach (chunk : chunks.value_tlist()) {
         io::printn("GENERATING");
-        chunk.bg_tiles = mem::new(ChunkData);
-        chunk.generate(false, true);
+        if (!chunk.bg_tiles) {
+            chunk.bg_tiles = mem::new(ChunkData);
+            chunk.generate(false, true);
+        }
     }
 }
 

@@ -36,21 +36,27 @@ struct SelectedMineProgress {
     double start_time;
     Vector2i position;
     double progress;
+	bool is_bg;
 }
 SelectedMineProgress mine_progress;
 
+struct TilePosition {
+	Vector2i pos;
+	bool is_bg;
+}
+
 List(<Bomb>) bombs;
-bool sigint_hit = false;
+bool placing_bg = false;
 
 raylib::Camera2D camera;
 raylib::Texture2D ants_tex;
 raylib::Texture2D bomb_tex;
 
-fn void harvest_tile(int x, int y) {
-	ItemID tile_id = chunks::get_tile(x, y);
+fn void harvest_tile(Vector2i pos, bool bg_tile = false) {
+	ItemID tile_id = chunks::get_tile(pos.x, pos.y, bg_tile);
 	if (!tile_id) return;
 	inventory::add_item(tiles::tile_list[tile_id].item_id, 1);
-	chunks::set_tile(x, y, 0);
+	chunks::set_tile(pos.x, pos.y, 0, bg_tile);
 }
 
 fn Vector2i get_mouse_tpos() {
@@ -64,7 +70,7 @@ fn void place(bool break_tile) {
 	Vector2i tile_pos = get_mouse_tpos();
 
 	if (break_tile) {
-		harvest_tile(tile_pos.x, tile_pos.y);
+		harvest_tile({tile_pos.x, tile_pos.y}, placing_bg);
 		return;
 	}
 
@@ -74,21 +80,25 @@ fn void place(bool break_tile) {
 	if (catch future_tile_id) return;
 	if (!inventory::has_item(item_id)) return;
 
-	ItemID tile_id = chunks::get_tile(tile_pos.x, tile_pos.y);
+	ItemID tile_id = chunks::get_tile(tile_pos.x, tile_pos.y, placing_bg);
 	if (tile_id) return;
 
 	inventory::add_item(item_id, -1);
-	chunks::set_tile(tile_pos.x, tile_pos.y, future_tile_id);
+	chunks::set_tile(tile_pos.x, tile_pos.y, future_tile_id, placing_bg);
 }
 
-fn bool air_adjacent(Vector2i pos) {
+fn bool air_adjacent(TilePosition tile_pos) {
     // NOTE: Returns FALSE if tile is actually air
 
-    if (chunks::get_tile(pos.x, pos.y) == 0) return false;
+    if (chunks::get_tile(tile_pos.pos.x, tile_pos.pos.y, tile_pos.is_bg) == 0) return false;
 
     for (int x_off = -1; x_off <= 1; x_off++) {
         for (int y_off = -1; y_off <= 1; y_off++) {
-            if (chunks::get_tile(pos.x + x_off, pos.y + y_off) == 0) return true;
+            if (chunks::get_tile(
+				tile_pos.pos.x + x_off,
+				tile_pos.pos.y + y_off,
+				tile_pos.is_bg
+			) == 0) return true;
         }
     }
 
@@ -108,18 +118,23 @@ fn void mine_held() {
     double time = raylib::get_time();
     Vector2i tile_pos = get_mouse_tpos();
 
-    if (!mine_progress.start_time || !tile_pos.eq(mine_progress.position)) {
-        if (!air_adjacent(tile_pos)) {
+    if (
+		!mine_progress.start_time
+		|| !tile_pos.eq(mine_progress.position)
+		|| placing_bg != mine_progress.is_bg
+	) {
+        if (!air_adjacent({tile_pos, placing_bg})) {
             mine_progress.start_time = 0.0;
             return;
         }
         mine_progress.start_time = time;
         mine_progress.position = tile_pos;
         mine_progress.progress = 0.0;
+        mine_progress.is_bg = placing_bg;
         return;
     }
 
-    double time_needed = mine_time(chunks::get_tile(tile_pos.x, tile_pos.y));
+    double time_needed = mine_time(chunks::get_tile(tile_pos.x, tile_pos.y, placing_bg));
 
     mine_progress.progress = (time - mine_progress.start_time) / time_needed;
 
@@ -145,6 +160,8 @@ fn void logic() {
 	if (raylib::is_key_pressed(raylib::keyboard::B)) {
 		spawn_bomb(player.position);
 	}
+
+	if (raylib::is_key_pressed(raylib::keyboard::TAB)) placing_bg = !placing_bg;
 
 	if (raylib::is_key_pressed(raylib::keyboard::ONE)) inventory::cursor_index = 0;
 	if (raylib::is_key_pressed(raylib::keyboard::TWO)) inventory::cursor_index = 1;
@@ -180,7 +197,7 @@ fn void logic() {
 
 				int target_x = (int)(bomb.position.x / 32) + x;
 				int target_y = (int)(bomb.position.y / 32) + y;
-				harvest_tile(target_x, target_y);
+				harvest_tile({target_x, target_y});
 			}
 		}
 	}
@@ -262,22 +279,10 @@ fn void render_ui() {
 	chat::render();
 }
 
-fn void sig_ignore() {
-    for (int i = 0; i < 17; i++) {
-        io::printn("Do not do that!");
-    }
-    sigint_hit = true;
-}
-
-fn bool window_should_close() {
-    return sigint_hit || raylib::window_should_close();
-}
-
 fn int main(String[] args) {
     io::printn("Early init...");
 
     raylib::set_trace_log_level(raylib::TraceLogLevel.WARNING);
-    libc::signal(libc::SIGINT, (SignalFunction)&sig_ignore);
 
 	bombs.new_init();
 	//chunks.new_init();
@@ -315,7 +320,7 @@ fn int main(String[] args) {
 	//	UIBox* y = uig::new(<UIBox>)(grid);
 	//}
 
-	while (!window_should_close()) {
+	while (!raylib::window_should_close()) {
 		raylib::begin_drawing();
 
 		raylib::clear_background(raylib::DARKBLUE);
@@ -340,7 +345,7 @@ fn int main(String[] args) {
 				},
 				0.0,
 				2.0,
-				raylib::WHITE
+				placing_bg ? raylib::RED : raylib::WHITE
 			);
 
 			logic();
@@ -353,9 +358,6 @@ fn int main(String[] args) {
 		raylib::end_drawing();
 	}
 
-    chunks::save_chunks();
-
-    io::printn("Goodbye!");
 	raylib::close_window();
 	return 0;
 }
