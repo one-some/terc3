@@ -21,12 +21,13 @@ struct Item {
     ItemID id;
     String name;
     raylib::Texture2D texture;
+    int stack_size;
 }
 
 List(<Item*>) item_list;
 
-fn Item* create_item(String name, raylib::Texture2D texture) {
-    Item* item = mem::new(Item, {(ItemID)item_list.len(), name, texture});
+fn Item* create_item(String name, raylib::Texture2D texture, int stack_size = 99) {
+    Item* item = mem::new(Item, {(ItemID)item_list.len(), name, texture, stack_size});
     item_list.push(item);
     return item;
 }
@@ -38,6 +39,8 @@ fn Item* selected_item() {
 fn void add_item(ItemID id, int delta) {
     foreach (i, slot : inventory) {
         if (slot.item != id) continue;
+        // TODO: FIX ME TO SPLIT STACKS GOODLY
+        if (inventory[i].count >= item_list[slot.item].stack_size) continue;
         inventory[i].count += delta;
 
         // Clear item if decrementing all of 'em
@@ -69,25 +72,27 @@ fn void InventorySlot.render(&self, raylib::Vector2 pos, bool highlighted) {
     raylib::draw_rectangle_v(
         pos,
         {INVENTORY_ITEM_SIZE, INVENTORY_ITEM_SIZE},
-        highlighted ? raylib::RED : raylib::BLACK,
+        highlighted ? raylib::RED : raylib::Color {0x00, 0x00, 0x00, 0xAA},
     );
 
     if (!self.item) return;
 
     raylib::draw_texture_ex(
         item_list[self.item].texture,
-        pos,
+        {pos.x + 2.0, pos.y + 2.0},
         0.0,
-        (float)INVENTORY_ITEM_SIZE / 16.0f,
+        (float)INVENTORY_ITEM_SIZE / 18.0f,
         raylib::WHITE
     );
+
+    if (self.count == 1) return;
 
     raylib::draw_text(
         string::tformat_zstr("%d", self.count),
         ((int)pos.x) + INVENTORY_ITEM_SIZE - 26,
         (int)pos.y,
         24,
-        highlighted ? raylib::RED : raylib::BLACK,
+        highlighted ? raylib::RED : raylib::YELLOW
     );
 }
 

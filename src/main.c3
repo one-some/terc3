@@ -309,8 +309,8 @@ fn int main(String[] args) {
 
 	tiles::register();
 
-	for (ushort i = 0; i < inventory::item_list.len(); i++) {
-		inventory::add_item(i, 99);
+	foreach (i, item : inventory::item_list) {
+		inventory::add_item((ItemID)i, item.stack_size);
 	}
 
     io::printn("Go time!");
