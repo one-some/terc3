@@ -7,6 +7,7 @@ def TileID = ushort;
 
 struct Tile {
 	TileID id;
+	ItemID item_id;
 	String name;
 	raylib::Texture2D texture;
 }
@@ -15,7 +16,12 @@ HashMap(<ItemID, Tile*>) item2tile;
 Tile*[] tile_list;
 
 fn void new_from_item(Item* item) {
-	item2tile.set(item.id, mem::new(Tile, { (TileID)item2tile.len(), item.name, item.texture }));
+	item2tile.set(item.id, mem::new(Tile, {
+		(TileID)item2tile.len(),
+		item.id,
+		item.name,
+		item.texture
+	}));
 }
 
 fn void register() {

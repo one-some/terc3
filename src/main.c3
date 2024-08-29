@@ -49,7 +49,7 @@ raylib::Texture2D bomb_tex;
 fn void harvest_tile(int x, int y) {
 	ItemID tile_id = chunks::get_tile(x, y);
 	if (!tile_id) return;
-	inventory::add_item(tile_id, 1);
+	inventory::add_item(tiles::tile_list[tile_id].item_id, 1);
 	chunks::set_tile(x, y, 0);
 }
 
