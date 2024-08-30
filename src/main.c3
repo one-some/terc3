@@ -51,6 +51,7 @@ bool placing_bg = false;
 raylib::Camera2D camera;
 raylib::Texture2D ants_tex;
 raylib::Texture2D bomb_tex;
+float time_of_day = -2.4f;
 
 fn void harvest_tile(Vector2i pos, bool bg_tile = false) {
 	ItemID tile_id = chunks::get_tile(pos.x, pos.y, bg_tile);
@@ -350,16 +351,23 @@ fn int main(String[] args) {
 		camera.target.x -= ((float)screen_size.x / camera.zoom) / 2;
 		camera.target.y -= ((float)screen_size.y / camera.zoom) / 2;
 
+		raylib::Vector2 center = {
+			(float)((screen_size.x * 0.5) - (sun_tex.width * 2.0)),
+			(float)((screen_size.y * 0.5) - (sun_tex.height * 2.0)),
+		};
+
 		raylib::draw_texture_ex(
 			sun_tex,
 			raylib::Vector2 {
-				(float)(screen_size.x / 12.0) - player.position.x * 0.01,
-				(float)(screen_size.y / 12.0) - player.position.y * 0.1,
+				center.x + ($$cos(time_of_day) * screen_size.x * 0.5f) - (player.position.x * 0.01f),
+				center.y + ($$sin(time_of_day) * screen_size.y * 0.5f) - (player.position.y * 0.1f),
 			},
 			0.0,
 			4.0,
 			raylib::fade(raylib::WHITE, 1+depth_effect),
 		);
+
+		time_of_day += 0.0001;
 
     	raylib::begin_mode2d(camera);
 			chunks::render_chunks();
