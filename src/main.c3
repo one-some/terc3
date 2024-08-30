@@ -1,7 +1,6 @@
 module terc3;
 
-//import ui;
-//import uig;
+import ui;
 import chat;
 import libc;
 import raylib;
@@ -151,8 +150,10 @@ fn void mine_held() {
     place(true);
 }
 
-fn void logic() {
-	player_physics();
+fn void input_logic() {
+	if (raylib::is_key_pressed(raylib::keyboard::E)) inventory::inventory_open = !inventory::inventory_open;
+
+	if (ui::menu_open()) return;
 
 	if (raylib::is_mouse_button_released(raylib::MouseButton.BUTTON_LEFT)) {
         mine_progress.start_time = 0.0;
@@ -180,8 +181,12 @@ fn void logic() {
 	if (raylib::is_key_pressed(raylib::keyboard::EIGHT)) inventory::cursor_index = 7;
 	if (raylib::is_key_pressed(raylib::keyboard::NINE)) inventory::cursor_index = 8;
 	if (raylib::is_key_pressed(raylib::keyboard::ZERO)) inventory::cursor_index = 9;
+}
 
-	if (raylib::is_key_pressed(raylib::keyboard::E)) inventory::inventory_open = !inventory::inventory_open;
+fn void logic() {
+	player_physics();
+
+	input_logic();
 	
 	double time = raylib::get_time();
 	foreach (bomb : bombs) {
