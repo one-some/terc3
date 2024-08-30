@@ -27,7 +27,7 @@ struct Bomb {
 
 Player player = {
 	raylib::Vector2 { 10, -128 },
-	raylib::Vector2 { 28, 64 },
+	raylib::Vector2 { 28, 59 },
 	raylib::Vector2 { 0, 0 },
 	false
 };
@@ -313,6 +313,8 @@ fn int main(String[] args) {
 	bomb_tex = raylib::load_texture("resources/bomb.png");
 	ants_tex = raylib::load_texture("resources/ants.png");
 
+	raylib::Texture2D sun_tex = raylib::load_texture("resources/sun.png");
+
 	tiles::register();
 
 	foreach (i, item : inventory::item_list) {
@@ -334,7 +336,12 @@ fn int main(String[] args) {
 
 		raylib::begin_drawing();
 
-		raylib::clear_background(raylib::DARKBLUE);
+		float depth_effect = $$min(0.0f, (player.position.y / -1000.0f));
+		raylib::Color bg = raylib::color_brightness(
+			{0x32, 0x78, 0xcf, 0xFF},
+			depth_effect
+		);
+		raylib::clear_background(bg);
 
 		camera.zoom += raylib::get_mouse_wheel_move_v().y / 10.0;
 		camera.zoom = $$max(0.01f, camera.zoom);
@@ -342,6 +349,17 @@ fn int main(String[] args) {
 		camera.target = player.position;
 		camera.target.x -= ((float)screen_size.x / camera.zoom) / 2;
 		camera.target.y -= ((float)screen_size.y / camera.zoom) / 2;
+
+		raylib::draw_texture_ex(
+			sun_tex,
+			raylib::Vector2 {
+				(float)(screen_size.x / 12.0) - player.position.x * 0.01,
+				(float)(screen_size.y / 12.0) - player.position.y * 0.1,
+			},
+			0.0,
+			4.0,
+			raylib::fade(raylib::WHITE, 1+depth_effect),
+		);
 
     	raylib::begin_mode2d(camera);
 			chunks::render_chunks();
