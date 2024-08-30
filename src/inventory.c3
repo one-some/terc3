@@ -17,7 +17,7 @@ const HAND_SLOT = 50;
 InventorySlot[51] inventory;
 bool inventory_open = false;
 int cursor_index = 1;
-InventorySlot* hovered_slot;
+int hovered_slot = - 1;
 
 struct Item {
     ItemID id;
@@ -38,24 +38,84 @@ fn Item* selected_item() {
 	return item_list[inventory[cursor_index].item];
 }
 
-fn void handle_item_moving() {
-    if (!hovered_slot) return;
+fn int InventorySlot.get_index(InventorySlot* target) {
+    foreach (int i, slot : inventory) {
+        if (target == &inventory[i]) return i;
+    }
+    unreachable("Uh oh");
+}
 
-    if (inventory[HAND_SLOT].count) {
-        if (hovered_slot.count) unreachable("HELO");
-        io::printn("PLACGING INTO EMPTY SLOT");
-        io::printn(inventory[HAND_SLOT].count);
+fn void handle_item_left_click() {
+    if (hovered_slot < 0) return;
 
-        InventorySlot middleman = *hovered_slot;
-        (*hovered_slot) = inventory[HAND_SLOT];
-        inventory[HAND_SLOT] = middleman;
-        io::printn(hovered_slot.count);
-    } else {
-        io::printn("TAKING");
-        inventory[HAND_SLOT] = *hovered_slot;
-        (*hovered_slot) = {};
+    InventorySlot* hand = &inventory[HAND_SLOT];
+    InventorySlot* hovered = &inventory[hovered_slot];
+
+    // Put something in hand if nothing there
+    if (!hand.count) {
+        *hand = *hovered;
+        *hovered = {};
+        return;
     }
 
+    // If the items are different, swap them
+    if (hand.item != hovered.item) {
+        @swap(*hovered, *hand);
+        return;
+    }
+
+    // Items are same, let's calculate how much we can stuff in there
+    Item* item = item_list[hovered.item];
+    int needed_for_stack = item.stack_size - hovered.count;
+    int amount_to_give = $$min(needed_for_stack, hand.count);
+
+    hand.count -= amount_to_give;
+    hovered.count += amount_to_give;
+    if (!hand.count) hand.item = 0;
+}
+
+fn void handle_item_right_click() {
+    if (hovered_slot < 0) return;
+
+    InventorySlot* hand = &inventory[HAND_SLOT];
+    InventorySlot* hovered = &inventory[hovered_slot];
+
+    if (hand.count) {
+        // We want to give!
+
+        // If this isn't an empty slot, take some things into account
+        if (hovered.count) {
+            // Don't stack into another item!
+            if (hovered.item != hand.item) return;
+
+            Item* item = item_list[hovered.item];
+            // Don't stack higher than you can handle!
+            if (hovered.count >= item.stack_size) return;
+        }
+
+        hovered.count++;
+        hovered.item = hand.item;
+        if (!--hand.count) hand.item = 0;
+
+        return;
+    }
+
+    // We want to take!
+
+    // Take ...what?
+    if (!hovered.count) return;
+
+    // Our hands are full!
+    if (hand.count) return;
+
+    int count_to_take = hovered.count / 2;
+
+    // Can't take zero!
+    if (!count_to_take) return;
+
+    hovered.count -= count_to_take;
+    hand.count = count_to_take;
+    hand.item = hovered.item;
 }
 
 fn void add_item(ItemID id, int delta) {
@@ -110,17 +170,26 @@ fn void InventorySlot.render(&self, raylib::Vector2 pos, bool selected) {
         INVENTORY_ITEM_SIZE
     });
 
-    if (self == &inventory[HAND_SLOT]) hovered = false;
+    bool render_bg = true;
 
-    if (hovered) hovered_slot = self;
+    if (self == &inventory[HAND_SLOT]) {
+        hovered = false;
+        render_bg = false;
+    }
+
+    if (hovered) {
+        hovered_slot = self.get_index();
+    }
 
     bool highlighted = selected || hovered;
 
-    raylib::draw_rectangle_v(
-        pos,
-        {INVENTORY_ITEM_SIZE, INVENTORY_ITEM_SIZE},
-        highlighted ? raylib::RED : raylib::Color {0x00, 0x00, 0x00, 0xAA},
-    );
+    if (render_bg) {
+        raylib::draw_rectangle_v(
+            pos,
+            {INVENTORY_ITEM_SIZE, INVENTORY_ITEM_SIZE},
+            highlighted ? raylib::RED : raylib::Color {0x00, 0x00, 0x00, 0xAA},
+        );
+    }
 
     if (!self.item) return;
 
@@ -151,7 +220,7 @@ fn void render_inventory() {
     const HOTBAR_WIDTH = (INVENTORY_ITEM_SIZE + MARGIN) * 10;
     int hotbar_start = (screen_width - HOTBAR_WIDTH) / 2;
 
-    hovered_slot = null;
+    hovered_slot = -1;
 
     for (int i = 9; i >= 0; i--) {
         raylib::Vector2 pos = {
@@ -162,11 +231,9 @@ fn void render_inventory() {
         inventory[i].render(pos, i == cursor_index);
     }
 
-    inventory[HAND_SLOT].render(raylib::get_mouse_position(), false);
-
     if (!inventory_open) return;
 
-    foreach (int i, slot : inventory::inventory[10..49]) {
+    for (int i = 10; i < 50; i++) {
         Vector2i item_pos = { i % 10, 4 - (i / 10) };
 
         raylib::Vector2 pos = {
@@ -174,10 +241,14 @@ fn void render_inventory() {
             (float)((screen_height / 2) - ((INVENTORY_ITEM_SIZE + MARGIN) * (item_pos.y - 2))),
         };
 
-        slot.render(pos, false);
+        inventory[i].render(pos, false);
     }
 
     if (raylib::is_mouse_button_pressed(raylib::MouseButton.BUTTON_LEFT)) {
-        handle_item_moving();
+        handle_item_left_click();
+    } else if (raylib::is_mouse_button_pressed(raylib::MouseButton.BUTTON_RIGHT)) {
+        handle_item_right_click();
     }
+
+    inventory[HAND_SLOT].render(raylib::get_mouse_position(), false);
 }
