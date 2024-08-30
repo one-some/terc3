@@ -164,7 +164,6 @@ fn void load_chunks() {
         }
 
         bool is_bg = file_path.path_string[0..1] == "BG";
-        io::printn(is_bg);
 
         Chunk* chunk;
         bool chunk_existing = false;
@@ -189,7 +188,8 @@ fn void load_chunks() {
     }
 
 	foreach (chunk : chunks.value_tlist()) {
-        io::printn("GENERATING");
+        // Complete the chunk: if a chunk only loads bg, generate fg and vice-versa.
+
         if (!chunk.tiles) {
             chunk.tiles = mem::new(ChunkData);
             chunk.generate(true, false);
@@ -239,7 +239,23 @@ fn Chunk gen_chunk(Vector2i pos) {
 }
 
 fn void render_chunks() {
+    Vector2 top_left = raylib::get_screen_to_world2d({0, 0}, terc3::camera);
+    top_left.x = top_left.x / (float)TILE_SIZE / (float)CHUNK_SIZE;
+    top_left.y = top_left.y / (float)TILE_SIZE / (float)CHUNK_SIZE;
+
+    Vector2 bottom_right = raylib::get_screen_to_world2d({
+        raylib::get_screen_width(),
+        raylib::get_screen_height(),
+    }, terc3::camera);
+    bottom_right.x = bottom_right.x / (float)TILE_SIZE / (float)CHUNK_SIZE;
+    bottom_right.y = bottom_right.y / (float)TILE_SIZE / (float)CHUNK_SIZE;
+
 	foreach (chunk : chunks.value_tlist()) {
+        if (chunk.position.x + 1 < (int)(top_left.x)) continue;
+        if (chunk.position.x > (int)(bottom_right.x)) continue;
+        if (chunk.position.y + 1 < (int)(top_left.y)) continue;
+        if (chunk.position.y > (int)(bottom_right.y)) continue;
+
 		for (int x = 0; x < CHUNK_SIZE; x++) {
 			for (int y = 0; y < CHUNK_SIZE; y++) {
 				int index = x + (CHUNK_SIZE * y);
@@ -268,7 +284,6 @@ fn void render_chunks() {
 				if (tile) {
                     raylib::draw_texture_ex(
                         tiles::tile_list[tile].texture,
-                        //tiles::tile_.get(2).texture!!,
                         draw_pos,
                         0.0,
                         2.0,

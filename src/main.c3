@@ -286,6 +286,20 @@ fn void render_ui() {
 	chat::render();
 }
 
+fn Rectangle get_screen_rect() {
+	Vector2i screen_size = {
+		raylib::get_screen_width(),
+		raylib::get_screen_height(),
+	};
+
+	return Rectangle {
+		camera.target.x,
+		camera.target.y,
+		screen_size.x,
+		screen_size.y,
+	};
+}
+
 fn int main(String[] args) {
     io::printn("Early init...");
 
@@ -395,21 +409,6 @@ fn int main(String[] args) {
 
 		// ui::render();
         render_ui();
-
-		// TODO: GEN CHUNKXXX
-	// 	Vector2i left_top = {
-	// 		(int)(camera.target.x) / chunks::TILE_SIZE,
-	// 		(int)(camera.target.y) / chunks::TILE_SIZE,
-	// 	};
-	// 	Vector2i bottom_right = {
-	// 		(int)(screen_size.x + camera.target.x) / chunks::TILE_SIZE,
-	// 		(int)(screen_size.y + camera.target.y) / chunks::TILE_SIZE,
-	// 	};
-	// 	for (int x = left_top.x; x < bottom_right.x; x++) {
-	// 		for (int y = left_top.y; y < bottom_right.y; y++) {
-	// 			chunks::chunk_for_tile(x, y);
-	// 		}
-	// 	}
 		
 		raylib::end_drawing();
 	}
