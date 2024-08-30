@@ -338,6 +338,11 @@ fn int main(String[] args) {
 		raylib::begin_drawing();
 
 		float depth_effect = $$min(0.0f, (player.position.y / -1000.0f));
+		// float depth_effect = $$min(0.0f, (
+		// 	((float)chunks::get_ground_height((int)player.position.x / chunks::CHUNK_SIZE) * chunks::CHUNK_SIZE)
+		// 	- player.position.y
+		// 	/ -1000.0f
+		// ));
 		raylib::Color bg = raylib::color_brightness(
 			{0x32, 0x78, 0xcf, 0xFF},
 			depth_effect

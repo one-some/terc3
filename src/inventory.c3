@@ -2,6 +2,7 @@ import raylib;
 import std::io;
 import std::collections::list;
 
+import ui;
 import vector2;
 
 def ItemID = ushort;
@@ -12,10 +13,11 @@ struct InventorySlot {
 }
 
 const INVENTORY_ITEM_SIZE = 48;
-const HAND_SLOT = 51;
+const HAND_SLOT = 50;
 InventorySlot[51] inventory;
 bool inventory_open = false;
 int cursor_index = 1;
+InventorySlot* hovered_slot;
 
 struct Item {
     ItemID id;
@@ -34,6 +36,26 @@ fn Item* create_item(String name, raylib::Texture2D texture, int stack_size = 99
 
 fn Item* selected_item() {
 	return item_list[inventory[cursor_index].item];
+}
+
+fn void handle_item_moving() {
+    if (!hovered_slot) return;
+
+    if (inventory[HAND_SLOT].count) {
+        if (hovered_slot.count) unreachable("HELO");
+        io::printn("PLACGING INTO EMPTY SLOT");
+        io::printn(inventory[HAND_SLOT].count);
+
+        InventorySlot middleman = *hovered_slot;
+        (*hovered_slot) = inventory[HAND_SLOT];
+        inventory[HAND_SLOT] = middleman;
+        io::printn(hovered_slot.count);
+    } else {
+        io::printn("TAKING");
+        inventory[HAND_SLOT] = *hovered_slot;
+        (*hovered_slot) = {};
+    }
+
 }
 
 fn void add_item(ItemID id, int delta) {
@@ -80,7 +102,20 @@ fn bool has_item(ItemID id) {
     return false;
 }
 
-fn void InventorySlot.render(&self, raylib::Vector2 pos, bool highlighted) {
+fn void InventorySlot.render(&self, raylib::Vector2 pos, bool selected) {
+    bool hovered = ui::mouse_in_rect({
+        pos.x,
+        pos.y,
+        INVENTORY_ITEM_SIZE,
+        INVENTORY_ITEM_SIZE
+    });
+
+    if (self == &inventory[HAND_SLOT]) hovered = false;
+
+    if (hovered) hovered_slot = self;
+
+    bool highlighted = selected || hovered;
+
     raylib::draw_rectangle_v(
         pos,
         {INVENTORY_ITEM_SIZE, INVENTORY_ITEM_SIZE},
@@ -116,14 +151,18 @@ fn void render_inventory() {
     const HOTBAR_WIDTH = (INVENTORY_ITEM_SIZE + MARGIN) * 10;
     int hotbar_start = (screen_width - HOTBAR_WIDTH) / 2;
 
+    hovered_slot = null;
+
     for (int i = 9; i >= 0; i--) {
         raylib::Vector2 pos = {
             (float)(hotbar_start + ((INVENTORY_ITEM_SIZE + MARGIN) * i)),
             (float)(screen_height - INVENTORY_ITEM_SIZE),
         };
 
-        inventory::inventory[i].render(pos, i == cursor_index);
+        inventory[i].render(pos, i == cursor_index);
     }
+
+    inventory[HAND_SLOT].render(raylib::get_mouse_position(), false);
 
     if (!inventory_open) return;
 
@@ -135,10 +174,10 @@ fn void render_inventory() {
             (float)((screen_height / 2) - ((INVENTORY_ITEM_SIZE + MARGIN) * (item_pos.y - 2))),
         };
 
-        raylib::draw_rectangle_v(
-            pos,
-            {INVENTORY_ITEM_SIZE, INVENTORY_ITEM_SIZE},
-            i == 0 ? raylib::RED : raylib::BLACK,
-        );
+        slot.render(pos, false);
+    }
+
+    if (raylib::is_mouse_button_pressed(raylib::MouseButton.BUTTON_LEFT)) {
+        handle_item_moving();
     }
 }
