@@ -37,10 +37,21 @@ fn Item* selected_item() {
 }
 
 fn void add_item(ItemID id, int delta) {
-    foreach (i, slot : inventory) {
+    bool rev = delta < 0;
+    // Loop forward if adding items, backward if removing items
+    for (int i = rev ? inventory.len - 1 : 0; i != (rev ? -1 : inventory.len); i += rev ? -1 : 1) {
+        InventorySlot slot = inventory[i];
         if (slot.item != id) continue;
-        // TODO: FIX ME TO SPLIT STACKS GOODLY
-        if (inventory[i].count >= item_list[slot.item].stack_size) continue;
+
+        int max_count = item_list[slot.item].stack_size;
+        int future_count = inventory[i].count + delta;
+
+        if (future_count > max_count) {
+            inventory[i].count = max_count;
+            delta = future_count - max_count;
+            continue;
+        }
+
         inventory[i].count += delta;
 
         // Clear item if decrementing all of 'em
@@ -51,6 +62,7 @@ fn void add_item(ItemID id, int delta) {
         return;
     }
 
+    // If it's a new item (or it doesn't), add a slot for it
     foreach (i, slot : inventory) {
         if (slot.item) continue;
         inventory[i] = { id, delta };
