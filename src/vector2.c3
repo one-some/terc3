@@ -8,6 +8,9 @@ struct Vector2i {
 fn bool Vector2i.eq(&self, Vector2i v) { return self.x == v.x && self.y == v.y; }
 fn Vector2i Vector2i.plus(&self, Vector2i v) { return {self.x + v.x, self.y + v.y}; }
 fn Vector2i Vector2i.minus(&self, Vector2i v) { return {self.x - v.x, self.y - v.y}; }
+
+fn Vector2i Vector2i.div_scalar(&self, int s) { return {self.x / s, self.y / s}; }
+
 fn double Vector2i.distance_to(&self, Vector2i v) {
 	return $$sqrt(
 		$$pow((double)v.x - (double)self.x, 2.0) +

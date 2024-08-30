@@ -127,13 +127,12 @@ fn void mine_held() {
 		|| !tile_pos.eq(mine_progress.position)
 		|| placing_bg != mine_progress.is_bg
 	) {
-        //if (!air_adjacent({tile_pos, placing_bg})) {
-        if (get_screen_tpos(vector2::to_2i(player.position)).distance_to(tile_pos) > 20.0) {
-			io::printn("TODO: FIXME");
-			io::printn("ALSO SAVE NO WORK ON WINDOWS");
+		Vector2i player_tpos = vector2::to_2i(player.position).div_scalar(chunks::TILE_SIZE);
+        if (player_tpos.distance_to(tile_pos) > 10.0) {
             mine_progress.start_time = 0.0;
             return;
         }
+
         mine_progress.start_time = time;
         mine_progress.position = tile_pos;
         mine_progress.progress = 0.0;
