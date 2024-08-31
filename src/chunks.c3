@@ -336,7 +336,7 @@ fn void render_chunks() {
                         draw_pos,
                         0.0,
                         2.0,
-                        raylib::color_brightness(raylib::GRAY, -1.2 + light),
+                        raylib::color_brightness(raylib::WHITE, -1.4 + light),
                     );
                 }
 
