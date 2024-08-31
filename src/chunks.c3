@@ -1,5 +1,6 @@
 import raylib;
 import std::collections::map;
+import std::collections::list;
 import std::io;
 
 import tiles;
@@ -18,6 +19,54 @@ struct Chunk {
     ChunkData* bg_tiles;
     bool fg_modified;
     bool bg_modified;
+    ChunkData* light_map;
+}
+
+struct Light {
+    Vector2i position;
+    ushort intensity;
+}
+
+List(<Light>) lights;
+
+fn void Chunk.update_light_map(&self) {
+    if (!self.light_map) self.light_map = mem::new(ChunkData);
+    // HOLY SHIT! O^876278312371263
+    for (int x = 0; x < CHUNK_SIZE; x++) {
+        for (int y = 0; y < CHUNK_SIZE; y++) {
+            // Iterate
+            double closest_distance = 4.0;
+            for (int r_x = -4; r_x < 4; r_x++) {
+                for (int r_y = -4; r_y < 4; r_y++) {
+                    if (get_tile(
+                        x + r_x + (self.position.x * CHUNK_SIZE),
+                        y + r_y + (self.position.y * CHUNK_SIZE),
+                    )) continue;
+
+                    double maybe = $$sqrt(((double)r_x * (double)r_x) + ((double)r_y * (double)r_y));
+                    if (maybe < closest_distance) closest_distance = maybe;
+                }
+            }
+
+            int index = x + (CHUNK_SIZE * y);
+            (*self.light_map)[index] = !closest_distance ? 255 : (ushort)(255.0 / closest_distance);
+            // foreach (light : lights) {
+            //     double distance = light.position.distance_to({
+            //         (self.position.x * CHUNK_SIZE) + x,
+            //         (self.position.y * CHUNK_SIZE) + y,
+            //     });
+
+            //     ushort value = (ushort)light.intensity;
+            //     if (distance) {
+            //         //value = (ushort)((double)light.intensity / $$pow(distance, 2.0));
+            //         value = (ushort)((double)light.intensity / distance * 0.5);
+            //     }
+
+
+            //     (*self.light_map)[index] = value;
+            // }
+        }
+    }
 }
 
 fn ushort gen_bg_tile(int x, int y, ushort tile) {
@@ -146,6 +195,8 @@ fn void save_chunk(Chunk* chunk, bool bg) {
 }
 
 fn void load_chunks() {
+    lights.push({{0, 0}, 255});
+
     io::path::Path! path = io::path::new_cwd().new_append("world")!!;
 
     foreach (file_path : io::path::new_ls(path)!!) {
@@ -199,6 +250,9 @@ fn void load_chunks() {
             chunk.bg_tiles = mem::new(ChunkData);
             chunk.generate(false, true);
         }
+
+        chunk.light_map = mem::new(ChunkData);
+        chunk.update_light_map();
     }
 }
 
@@ -232,6 +286,8 @@ fn Chunk gen_chunk(Vector2i pos) {
         mem::new(ChunkData),
         false,
         false,
+        null,
+        //mem::new(ChunkData),
 	};
 
     chunk.generate(true, true);
@@ -256,6 +312,8 @@ fn void render_chunks() {
         if (chunk.position.y + 1 < (int)(top_left.y)) continue;
         if (chunk.position.y > (int)(bottom_right.y)) continue;
 
+        if (!chunk.light_map) chunk.update_light_map();
+
 		for (int x = 0; x < CHUNK_SIZE; x++) {
 			for (int y = 0; y < CHUNK_SIZE; y++) {
 				int index = x + (CHUNK_SIZE * y);
@@ -269,6 +327,8 @@ fn void render_chunks() {
                     (float)tile_pos.y * TILE_SIZE,
                 };
 
+				float light = (float)(*chunk.light_map)[index] / 255.0;
+
 				uint bg_tile = (*chunk.bg_tiles)[index];
 				if (bg_tile) {
                     raylib::draw_texture_ex(
@@ -276,18 +336,18 @@ fn void render_chunks() {
                         draw_pos,
                         0.0,
                         2.0,
-                        raylib::GRAY
+                        raylib::color_brightness(raylib::GRAY, -1.2 + light),
                     );
                 }
 
-				uint tile = (*chunk.tiles)[index];
+				ushort tile = (*chunk.tiles)[index];
 				if (tile) {
                     raylib::draw_texture_ex(
                         tiles::tile_list[tile].texture,
                         draw_pos,
                         0.0,
                         2.0,
-                        raylib::WHITE
+                        raylib::color_brightness(raylib::WHITE, -1.0 + light),
                     );
                 }
 
