@@ -29,42 +29,58 @@ struct Light {
 
 List(<Light>) lights;
 
+double[] kernel = {
+    1f/16f, 1f/8f, 1f/16f, 
+    1f/8f,  1f/4f, 1f/8f, 
+    1f/16f, 1f/8f, 1f/16f, 
+};
+
 fn void Chunk.update_light_map(&self) {
     if (!self.light_map) self.light_map = mem::new(ChunkData);
     // HOLY SHIT! O^876278312371263
     for (int x = 0; x < CHUNK_SIZE; x++) {
         for (int y = 0; y < CHUNK_SIZE; y++) {
-            // Iterate
-            double closest_distance = 4.0;
-            for (int r_x = -4; r_x < 4; r_x++) {
-                for (int r_y = -4; r_y < 4; r_y++) {
-                    if (get_tile(
-                        x + r_x + (self.position.x * CHUNK_SIZE),
-                        y + r_y + (self.position.y * CHUNK_SIZE),
-                    )) continue;
-
-                    double maybe = $$sqrt(((double)r_x * (double)r_x) + ((double)r_y * (double)r_y));
-                    if (maybe < closest_distance) closest_distance = maybe;
-                }
-            }
+            if (get_tile(
+                x + (self.position.x * CHUNK_SIZE),
+                y + (self.position.y * CHUNK_SIZE),
+            )) continue;
 
             int index = x + (CHUNK_SIZE * y);
-            (*self.light_map)[index] = !closest_distance ? 255 : (ushort)(255.0 / closest_distance);
-            // foreach (light : lights) {
-            //     double distance = light.position.distance_to({
-            //         (self.position.x * CHUNK_SIZE) + x,
-            //         (self.position.y * CHUNK_SIZE) + y,
-            //     });
+            (*self.light_map)[index] = 255;
+        }
+    }
 
-            //     ushort value = (ushort)light.intensity;
-            //     if (distance) {
-            //         //value = (ushort)((double)light.intensity / $$pow(distance, 2.0));
-            //         value = (ushort)((double)light.intensity / distance * 0.5);
-            //     }
+    for (int threshold = 255; threshold > 0; threshold -= 255/8) {
+        ChunkData last = *self.light_map;
 
+        for (int x = 0; x < CHUNK_SIZE; x++) {
+            for (int y = 0; y < CHUNK_SIZE; y++) {
+                int our_index = x + (CHUNK_SIZE * y);
+                bool done = false;
 
-            //     (*self.light_map)[index] = value;
-            // }
+                for (int kx = -1; kx <= 1; kx++) {
+                    for (int ky = -1; ky <= 1; ky++) {
+                        int local_x = x + kx;
+                        int local_y = y + ky;
+
+                        // FIXME!
+                        if (local_x < 0) continue;
+                        if (local_y < 0) continue;
+                        if (local_x >= CHUNK_SIZE) continue;
+                        if (local_y >= CHUNK_SIZE) continue;
+
+                        int index = local_x + (CHUNK_SIZE * local_y);
+
+                        if (last[index] < threshold) continue;
+                        if ((*self.light_map)[our_index] > threshold) continue;
+
+                        (*self.light_map)[our_index] = (ushort)threshold;
+                        done = true;
+                        break;
+                    }
+                    if (done) break;
+                }
+            }
         }
     }
 }
