@@ -37,8 +37,12 @@ double[] kernel = {
 };
 
 fn void Chunk.update_light_map(&self) {
-    if (!self.light_map) self.light_map = mem::new(ChunkData);
-    // HOLY SHIT! O^876278312371263
+    if (!self.light_map) {
+        self.light_map = mem::new(ChunkData);
+    } else {
+        mem::clear(self.light_map, ChunkData.sizeof);
+    }
+
     for (int x = 0; x < CHUNK_SIZE; x++) {
         for (int y = 0; y < CHUNK_SIZE; y++) {
             if (get_tile(
