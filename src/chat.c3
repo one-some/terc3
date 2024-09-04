@@ -12,17 +12,19 @@ struct ChatMessage {
     String content;
     int visual_ttl;
     int px_width;
+    Color color;
 }
 
 List(<ChatMessage>) messages;
 String chat_buf;
 
-fn void add_message(String content) {
+fn void add_message(String content, Color color) {
     // Don't need ZString as we won't be editing before this
     messages.push({
         content,
         800,
-        raylib::measure_text(content, FONT_SIZE)
+        raylib::measure_text(content, FONT_SIZE),
+        color
     });
 }
 
@@ -45,6 +47,11 @@ fn void process_key(char key) {
 }
 
 fn void execute_command(String cmd) {
+    if (!cmd.starts_with("/")) {
+        add_message(string::new_format("[giantmaze] %s", cmd), raylib::WHITE);
+        return;
+    }
+
     String[] bits = cmd.strip("/").split(" ");
     if (!bits.len) return;
     switch (bits[0]) {
@@ -54,7 +61,7 @@ fn void execute_command(String cmd) {
             inventory::add_item(item_id, amount);
             break;
         default:
-            add_message(string::new_format("[giantmaze] %s", cmd));
+            add_message(string::new_format("Invalid command '%s'", bits[0]), raylib::RED);
             break;
     }
     io::printn(bits);
@@ -116,7 +123,7 @@ fn void render() {
             4,
             y + 4,
             FONT_SIZE,
-            {0xFF, 0xFF, 0xFF, (char)(opacity * 0xFF)}
+            {message.color.r, message.color.g, message.color.b, (char)(opacity * 0xFF)}
         );
     }
 }

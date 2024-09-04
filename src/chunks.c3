@@ -50,7 +50,7 @@ fn void Chunk.update_light_map(&self) {
         }
     }
 
-    for (int threshold = 255; threshold > 0; threshold -= 255/8) {
+    for (int threshold = 255; threshold > 0; threshold -= 255/4) {
         ChunkData last = *self.light_map;
 
         for (int x = 0; x < CHUNK_SIZE; x++) {
