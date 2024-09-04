@@ -8,7 +8,8 @@ import inventory;
 import terc3;
 import vector2;
 
-const TILE_SIZE = 32;
+const TILE_TEX_SCALE = 1;
+const TILE_SIZE = 16;
 const CHUNK_SIZE = 32;
 def ChunkData = ushort[CHUNK_SIZE * CHUNK_SIZE];
 HashMap(<String, Chunk*>) chunks;
@@ -353,7 +354,7 @@ fn void render_chunks() {
                         tiles::tile_list[bg_tile].texture,
                         draw_pos,
                         0.0,
-                        2.0,
+                        TILE_TEX_SCALE,
                         raylib::color_brightness(raylib::WHITE, -1.4 + light),
                     );
                 }
@@ -364,7 +365,7 @@ fn void render_chunks() {
                         tiles::tile_list[tile].texture,
                         draw_pos,
                         0.0,
-                        2.0,
+                        TILE_TEX_SCALE,
                         raylib::color_brightness(raylib::WHITE, -1.0 + light),
                     );
                 }
@@ -375,7 +376,7 @@ fn void render_chunks() {
                             (float)(tile_pos.x * TILE_SIZE),
                             (float)(tile_pos.y * TILE_SIZE),
                         },
-                        {32, 32},
+                        {TILE_SIZE, TILE_SIZE},
                         raylib::fade(raylib::WHITE, (float)terc3::mine_progress.progress / 3),
                     );
                 }

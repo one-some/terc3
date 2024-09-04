@@ -26,7 +26,7 @@ struct Bomb {
 
 Player player = {
 	raylib::Vector2 { 10, -128 },
-	raylib::Vector2 { 28, 59 },
+	raylib::Vector2 { 20, 45 },
 	raylib::Vector2 { 0, 0 },
 	false
 };
@@ -224,8 +224,8 @@ fn void logic() {
 			for (int y = -8; y < 8; y++) {
 				if ((x * x) + (y * y) > (8 * 8)) continue;
 
-				int target_x = (int)(bomb.position.x / 32) + x;
-				int target_y = (int)(bomb.position.y / 32) + y;
+				int target_x = (int)(bomb.position.x / chunks::TILE_SIZE) + x;
+				int target_y = (int)(bomb.position.y / chunks::TILE_SIZE) + y;
 				harvest_tile({target_x, target_y});
 			}
 		}
@@ -420,7 +420,7 @@ fn int main(String[] args) {
 					(float)(tpos.y * chunks::TILE_SIZE),
 				},
 				0.0,
-				2.0,
+				chunks::TILE_TEX_SCALE,
 				placing_bg ? raylib::RED : raylib::WHITE
 			);
 
