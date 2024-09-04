@@ -172,6 +172,8 @@ fn void set_tile(int x, int y, ItemID tile, bool bg_tile = false) {
     }
 	(*target_chunk.tiles)[tile_index(x, y)] = tile;
     target_chunk.fg_modified = true;
+
+    target_chunk.update_light_map();
 }
 
 fn void save_chunks() @finalizer {

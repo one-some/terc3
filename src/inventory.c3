@@ -15,7 +15,6 @@ struct InventorySlot {
 const INVENTORY_ITEM_SIZE = 48;
 const HAND_SLOT = 50;
 InventorySlot[51] inventory;
-bool inventory_open = false;
 int cursor_index = 1;
 int hovered_slot = - 1;
 
@@ -231,7 +230,7 @@ fn void render_inventory() {
         inventory[i].render(pos, i == cursor_index);
     }
 
-    if (!inventory_open) return;
+    if (ui::active_menu != ui::Menu.INVENTORY) return;
 
     for (int i = 10; i < 50; i++) {
         Vector2i item_pos = { i % 10, 4 - (i / 10) };

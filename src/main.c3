@@ -151,7 +151,24 @@ fn void mine_held() {
 }
 
 fn void input_logic() {
-	if (raylib::is_key_pressed(raylib::keyboard::E)) inventory::inventory_open = !inventory::inventory_open;
+	if (raylib::is_key_pressed(raylib::keyboard::ESCAPE)) {
+		ui::active_menu = Menu.NONE;
+		return;
+	}
+
+	if (raylib::is_key_pressed(raylib::keyboard::E)) {
+		switch (ui::active_menu) {
+			case Menu.NONE:
+				ui::active_menu = Menu.INVENTORY;
+				break;
+			case Menu.INVENTORY:
+				ui::active_menu = Menu.NONE;
+				break;
+			default:
+				break;
+		}
+		return;
+	}
 
 	if (ui::menu_open()) return;
 
@@ -310,9 +327,6 @@ fn int main(String[] args) {
 
     raylib::set_trace_log_level(raylib::TraceLogLevel.WARNING);
 
-	bombs.new_init();
-	//chunks.new_init();
-
     io::printn("Loading chunks...");
 
     chunks::load_chunks();
@@ -328,6 +342,7 @@ fn int main(String[] args) {
 	raylib::set_config_flags(0x00000004);
 	raylib::init_window(800, 800, "HELLO");
 	raylib::set_target_fps(60);
+	raylib::set_exit_key(0);
 
     io::printn("Loading textures...");
 	bomb_tex = raylib::load_texture("resources/bomb.png");

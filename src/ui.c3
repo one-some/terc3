@@ -1,8 +1,16 @@
 import raylib;
 import inventory;
 
+enum Menu {
+    NONE,
+    INVENTORY,
+    CHAT
+}
+
+Menu active_menu = Menu.NONE;
+
 fn bool menu_open() {
-    return inventory::inventory_open;
+    return active_menu != Menu.NONE;
 }
 
 fn bool mouse_in_rect(Rectangle rect) {
