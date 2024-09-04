@@ -243,7 +243,7 @@ fn void player_physics() {
 	if (raylib::is_key_down(raylib::keyboard::A)) player.velocity.x = -5.0;
 
 	player.velocity.y = (float)$$min(9.8, player.velocity.y + 0.31);
-	if (player.on_ground && raylib::is_key_down(raylib::keyboard::SPACE)) player.velocity.y -= 12.0;
+	if (player.on_ground && raylib::is_key_down(raylib::keyboard::SPACE)) player.velocity.y -= 7.0;
     player.on_ground = false;
 
 	raylib::Vector2 future_pos = player.position;
@@ -335,7 +335,7 @@ fn int main(String[] args) {
 		raylib::Vector2 { 0, 0 },
 		raylib::Vector2 { 0, 0 },
 		0.0,
-		1.0
+		2.0
 	};
 
 	// FLAG_WINDOW_RESIZABLE
@@ -347,6 +347,7 @@ fn int main(String[] args) {
     io::printn("Loading textures...");
 	bomb_tex = raylib::load_texture("resources/bomb.png");
 	ants_tex = raylib::load_texture("resources/ants.png");
+	raylib::Texture2D player_tex = raylib::load_texture("resources/player.png");
 
 	raylib::Texture2D sun_tex = raylib::load_texture("resources/sun.png");
 
@@ -410,7 +411,15 @@ fn int main(String[] args) {
 
     	raylib::begin_mode2d(camera);
 			chunks::render_chunks();
-			raylib::draw_rectangle_v(player.position, player.size, raylib::RED);
+
+			//raylib::draw_rectangle_v(player.position, player.size, raylib::RED);
+			raylib::draw_texture_ex(
+				player_tex,
+				player.position,
+				0.0,
+				1.0,
+				raylib::WHITE
+			);
 
 			Vector2i tpos = get_mouse_tpos();
 			raylib::draw_texture_ex(
